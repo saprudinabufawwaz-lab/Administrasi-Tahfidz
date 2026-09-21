@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title id="docTitle">Administrasi Tahfidz</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800">
+<div id="toast" class="fixed top-4 right-4 z-[100] hidden max-w-sm rounded-xl px-4 py-3 text-sm shadow-lg"></div>
+<div id="login" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-900 via-emerald-700 to-slate-900">
+ <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-7">
+  <div class="text-center mb-6"><div class="mx-auto w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl font-black overflow-hidden"><img id="loginLogo" class="w-full h-full object-contain hidden" alt="Logo"><span id="loginLogoFallback">TA</span></div><h1 id="loginInstitution" class="text-2xl font-bold mt-3">Administrasi Tahfidz</h1><p class="text-sm text-slate-500">Sistem Administrasi Tahfidz Sekolah</p></div>
+  <div class="flex gap-2 mb-5"><button id="tabLogin" class="flex-1 py-2 rounded-lg bg-emerald-600 text-white" onclick="showAuth('login')">Masuk</button><button id="tabRegister" class="flex-1 py-2 rounded-lg bg-slate-100" onclick="showAuth('register')">Daftar Guru</button></div>
+  <form id="loginForm" onsubmit="login(event)" class="space-y-4"><input id="loginEmail" type="email" required placeholder="Email" class="w-full p-3 border rounded-lg"><input id="loginPassword" type="password" required placeholder="Password" class="w-full p-3 border rounded-lg"><button class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-lg font-semibold">Masuk</button></form>
+  <form id="registerForm" onsubmit="registerTeacher(event)" class="space-y-4 hidden"><input id="regName" required placeholder="Nama guru" class="w-full p-3 border rounded-lg"><input id="regEmail" type="email" required placeholder="Email" class="w-full p-3 border rounded-lg"><input id="regPassword" type="password" minlength="6" required placeholder="Password minimal 6 karakter" class="w-full p-3 border rounded-lg"><input id="regHalaqoh" required placeholder="Halaqoh yang diampu, pisahkan dengan koma" class="w-full p-3 border rounded-lg"><p class="text-xs text-slate-500">Contoh: Halaqoh Abu Bakar, Halaqoh Umar. Setelah mendaftar, Koordinator akan memeriksa dan menghubungkan penugasan halaqoh.</p><button class="w-full bg-emerald-600 text-white p-3 rounded-lg font-semibold">Kirim Pendaftaran</button></form>
+  <p id="configWarning" class="text-xs text-amber-700 bg-amber-50 p-3 rounded-lg mt-5 hidden">Supabase belum dikonfigurasi. Isi <b>js/config.js</b> terlebih dahulu.</p>
+ </div>
+</div>
+<div id="app" class="hidden min-h-screen">
+<header class="lg:hidden sticky top-0 z-40 bg-emerald-800 text-white p-3 flex items-center justify-between"><b id="mobileBrand">Administrasi Tahfidz</b><button onclick="toggleSidebar()" class="text-xl"><i class="fa-solid fa-bars"></i></button></header>
+<div id="sidebar" class="fixed z-50 inset-y-0 left-0 w-72 bg-emerald-900 text-white p-5 transform -translate-x-full lg:translate-x-0 transition-transform"><div class="mb-7"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-white/10 overflow-hidden flex items-center justify-center"><img id="sideLogo" class="w-full h-full object-contain hidden" alt="Logo"><span id="sideLogoFallback">TA</span></div><div id="sideBrand" class="font-black text-xl leading-tight">Administrasi Tahfidz</div></div><div id="sideUser" class="text-xs text-emerald-200 mt-1"></div></div><nav id="nav" class="space-y-1"></nav><button onclick="logout()" class="mt-8 w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800"><i class="fa-solid fa-right-from-bracket mr-2"></i>Keluar</button></div>
+<main class="lg:ml-72 p-4 md:p-7"><div class="mb-6"><h2 id="pageTitle" class="text-2xl font-bold">Beranda</h2><p id="pageSub" class="text-sm text-slate-500"></p></div><div id="content"></div></main></div>
+
+<!-- modal root -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 z-[80] p-4 overflow-y-auto">
+  <div id="modalBox" class="max-w-2xl mx-auto mt-10 bg-white rounded-2xl p-6"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
