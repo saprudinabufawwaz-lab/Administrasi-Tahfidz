@@ -16970,12 +16970,6 @@ function student(){
                   </td>
 
                   <td class="p-3">
-                    ${esc(
-                      cache.halaqoh.find(h=>h.id===s.halaqoh_id)?.nama || '-'
-                    )}
-                  </td>
-
-                  <td class="p-3">
                     ${
                       s.aktif !== false
                       ? '<span class="text-emerald-600 font-medium">Aktif</span>'
