@@ -17122,6 +17122,17 @@ function openStudent(id=''){
       class="space-y-4">
 
       <label class="block text-sm font-medium">
+        Nomor Absen
+        <input
+          id="sabsen"
+          type="number"
+          min="1"
+          value="${s?.nomor_absen || ''}"
+          placeholder="Nomor absen"
+          class="mt-1 w-full p-2.5 border rounded-lg">
+      </label>
+
+      <label class="block text-sm font-medium">
         Nama Murid
         <input
           id="sn"
@@ -17191,7 +17202,6 @@ function openStudent(id=''){
   openModal();
 }
 
-
 async function saveStudent(e,id=''){
 
   e.preventDefault();
@@ -17202,11 +17212,22 @@ async function saveStudent(e,id=''){
     return toast('Nama murid wajib diisi','err');
   }
 
+  const nomorAbsen =
+    $('sabsen').value.trim();
+
   const payload = {
+    nomor_absen: nomorAbsen
+      ? Number(nomorAbsen)
+      : null,
+
     nama,
+
     nis: $('snis').value.trim() || null,
+
     class_id: $('sc').value || null,
+
     halaqoh_id: $('sh').value || null,
+
     aktif: $('saktif').value === 'true'
   };
 
@@ -17228,13 +17249,17 @@ async function saveStudent(e,id=''){
   }
 
   if(result.error){
-    return toast(result.error.message,'err');
+    console.error(result.error);
+    return toast(
+      result.error.message,
+      'err'
+    );
   }
 
   toast(
     id
-    ? 'Data murid berhasil diperbarui'
-    : 'Murid berhasil ditambahkan'
+      ? 'Data murid berhasil diperbarui'
+      : 'Murid berhasil ditambahkan'
   );
 
   closeModal();
@@ -17243,7 +17268,6 @@ async function saveStudent(e,id=''){
 
   go('student');
 }
-
 
 async function deleteStudent(id){
 
