@@ -17383,7 +17383,12 @@ function filterStudentView(type){
         .filter(x => x.teacher_id === current.id)
         .map(x => x.halaqoh_id);
 
- let students = cache.students.slice();
+ let students = [...cache.students].sort((a, b) => {
+  const noA = Number(a.nomor_absen) || 999999;
+  const noB = Number(b.nomor_absen) || 999999;
+
+  return noA - noB;
+});
 
   if(current.role !== 'koordinator'){
 
@@ -17418,6 +17423,12 @@ students.sort((a,b) => {
 
   return absenA - absenB;
 
+});
+students.sort((a, b) => {
+  const noA = Number(a.nomor_absen) || 999999;
+  const noB = Number(b.nomor_absen) || 999999;
+
+  return noA - noB;
 });
   const tbody = $('studentTableBody');
 
