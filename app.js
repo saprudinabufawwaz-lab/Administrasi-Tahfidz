@@ -11746,19 +11746,18 @@ function report(){
       : '';
 
 
-  const rows = cache.reports.filter(
+const rows = cache.reports
+  .filter(
     r => {
 
       const allowedByRole =
         current.role === 'koordinator' ||
         r.teacher_id === current.id;
 
-
       const allowedByClass =
         current.role !== 'koordinator' ||
         !selectedCoordinatorClass ||
         r.class_id === selectedCoordinatorClass;
-
 
       return (
         allowedByRole &&
@@ -11766,7 +11765,29 @@ function report(){
       );
 
     }
-  );
+  )
+  .slice()
+  .sort((a,b) => {
+
+    const studentA =
+      cache.students.find(
+        s => s.id === a.student_id
+      );
+
+    const studentB =
+      cache.students.find(
+        s => s.id === b.student_id
+      );
+
+    const absenA =
+      Number(studentA?.nomor_absen || 999999);
+
+    const absenB =
+      Number(studentB?.nomor_absen || 999999);
+
+    return absenA - absenB;
+
+  });
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
@@ -12032,12 +12053,30 @@ function exportQuarterlyReportsExcel(){
       belum ada rekap.
     */
 
-    const data = classReports.map(r => {
+   const data = classReports
+  .slice()
+  .sort((a,b) => {
 
-      const student = cache.students.find(
-        s => s.id === r.student_id
+    const studentA =
+      cache.students.find(
+        s => s.id === a.student_id
       );
 
+    const studentB =
+      cache.students.find(
+        s => s.id === b.student_id
+      );
+
+    const absenA =
+      Number(studentA?.nomor_absen || 999999);
+
+    const absenB =
+      Number(studentB?.nomor_absen || 999999);
+
+    return absenA - absenB;
+
+  })
+  .map(r => {
       const j1 = cache.journals.find(
         j => j.id === r.month1_journal_id
       );
@@ -12305,11 +12344,30 @@ function renderQuarterlyPreview(classId){
     return;
   }
 
-  const rows = reports.map(r => {
+const rows = reports
+  .slice()
+  .sort((a,b) => {
 
-    const student = cache.students.find(
-      s => s.id === r.student_id
-    );
+    const studentA =
+      cache.students.find(
+        s => s.id === a.student_id
+      );
+
+    const studentB =
+      cache.students.find(
+        s => s.id === b.student_id
+      );
+
+    const absenA =
+      Number(studentA?.nomor_absen || 999999);
+
+    const absenB =
+      Number(studentB?.nomor_absen || 999999);
+
+    return absenA - absenB;
+
+  })
+  .map(r => {
 
     const j1 = cache.journals.find(
       j => j.id === r.month1_journal_id
@@ -16866,12 +16924,13 @@ function student(){
 
           <thead>
             <tr class="bg-slate-50">
-              <th class="p-3 text-left">Nama</th>
-              <th class="p-3 text-left">NIS</th>
-              <th class="p-3 text-left">Kelas</th>
-              <th class="p-3 text-left">Halaqoh</th>
-              <th class="p-3 text-left">Status</th>
-              <th class="p-3 text-left">Aksi</th>
+              <th class="p-3 text-left">No. Absen</th>
+<th class="p-3 text-left">Nama</th>
+<th class="p-3 text-left">NIS</th>
+<th class="p-3 text-left">Kelas</th>
+<th class="p-3 text-left">Halaqoh</th>
+<th class="p-3 text-left">Status</th>
+<th class="p-3 text-left">Aksi</th>
             </tr>
           </thead>
 
@@ -16882,7 +16941,9 @@ function student(){
               ?
               visibleStudents.map(s=>`
                 <tr class="border-t hover:bg-slate-50">
-
+<td class="p-3">
+  ${s.nomor_absen || '-'}
+</td>
                   <td class="p-3">
                     ${esc(s.nama)}
                   </td>
@@ -16932,7 +16993,7 @@ function student(){
               :
               `
                 <tr>
-                  <td colspan="6" class="p-6 text-center text-slate-500">
+                  <td colspan="7" class="p-6 text-center text-slate-500">
                     Belum ada data murid.
                   </td>
                 </tr>
@@ -17310,7 +17371,7 @@ function filterStudentView(type){
         .filter(x => x.teacher_id === current.id)
         .map(x => x.halaqoh_id);
 
-  let students = cache.students;
+ let students = cache.students.slice();
 
   if(current.role !== 'koordinator'){
 
@@ -17334,7 +17395,18 @@ function filterStudentView(type){
     }
 
   }
+// Urutkan murid berdasarkan nomor absen
+students.sort((a,b) => {
 
+  const absenA =
+    Number(a.nomor_absen || 999999);
+
+  const absenB =
+    Number(b.nomor_absen || 999999);
+
+  return absenA - absenB;
+
+});
   const tbody = $('studentTableBody');
 
   if(!tbody) return;
