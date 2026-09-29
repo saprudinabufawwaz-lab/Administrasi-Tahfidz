@@ -261,8 +261,8 @@ async function start(user){
   await loadSettings();
   console.log('START 4 - loadSettings selesai');
 
-  $('login').classList.add('hidden');
-  $('login').style.display='none';
+  $('loginScreen').classList.add('hidden');
+$('loginScreen').style.display='none';
 
   $('app').classList.remove('hidden');
   $('app').style.display='block';
