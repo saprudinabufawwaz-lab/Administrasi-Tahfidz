@@ -17424,12 +17424,7 @@ students.sort((a,b) => {
   return absenA - absenB;
 
 });
-students.sort((a, b) => {
-  const noA = Number(a.nomor_absen) || 999999;
-  const noB = Number(b.nomor_absen) || 999999;
 
-  return noA - noB;
-});
   const tbody = $('studentTableBody');
 
   if(!tbody) return;
