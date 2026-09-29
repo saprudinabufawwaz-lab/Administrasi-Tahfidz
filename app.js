@@ -16808,20 +16808,31 @@ function student(){
       : '';
 
 
-  let visibleStudents = cache.students;
+ let visibleStudents = [...cache.students].sort((a, b) => {
+  const noA = Number(a.nomor_absen) || 999999;
+  const noB = Number(b.nomor_absen) || 999999;
 
+  return noA - noB;
+});
 
   if(
     current.role === 'koordinator' &&
     selectedCoordinatorClass
   ){
 
-    visibleStudents =
-      cache.students.filter(
-        s =>
-          s.class_id ===
-          selectedCoordinatorClass
-      );
+  visibleStudents =
+  cache.students
+    .filter(
+      s =>
+        s.class_id ===
+        selectedCoordinatorClass
+    )
+    .sort((a, b) => {
+      const noA = Number(a.nomor_absen) || 999999;
+      const noB = Number(b.nomor_absen) || 999999;
+
+      return noA - noB;
+    });
 
   }
 
