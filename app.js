@@ -16797,44 +16797,59 @@ function student(){
         .filter(x => x.teacher_id === current.id)
         .map(x => x.halaqoh_id);
 
-
-  /* =====================================================
-     FILTER KELAS KOORDINATOR
-  ===================================================== */
-
   const selectedCoordinatorClass =
     current.role === 'koordinator'
       ? (window.coordinatorStudentClassFilter || '')
       : '';
 
+  let visibleStudents = [...cache.students];
 
- let visibleStudents = [...cache.students].sort((a, b) => {
-  const noA = Number(a.nomor_absen) || 999999;
-  const noB = Number(b.nomor_absen) || 999999;
-
-  return noA - noB;
-});
-
+  /*
+    FILTER KELAS KOORDINATOR
+  */
   if(
     current.role === 'koordinator' &&
     selectedCoordinatorClass
   ){
 
-  visibleStudents =
-  cache.students
-    .filter(
-      s =>
-        s.class_id ===
-        selectedCoordinatorClass
-    )
-    .sort((a, b) => {
-      const noA = Number(a.nomor_absen) || 999999;
-      const noB = Number(b.nomor_absen) || 999999;
-
-      return noA - noB;
-    });
+    visibleStudents = visibleStudents.filter(
+      s => s.class_id === selectedCoordinatorClass
+    );
 
   }
+
+  /*
+    FILTER PENUGASAN GURU
+  */
+  if(current.role !== 'koordinator'){
+
+    visibleStudents = visibleStudents.filter(s =>
+      assignedClassIds.includes(s.class_id) ||
+      assignedHalaqohIds.includes(s.halaqoh_id)
+    );
+
+  }
+
+  /*
+    URUTKAN BERDASARKAN NOMOR ABSEN
+
+    Murid yang memiliki nomor absen
+    berada di atas.
+
+    Murid tanpa nomor absen
+    berada di paling bawah.
+  */
+  visibleStudents.sort((a,b) => {
+
+    const noA =
+      Number(a.nomor_absen) || 999999;
+
+    const noB =
+      Number(b.nomor_absen) || 999999;
+
+    return noA - noB;
+
+  });
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
@@ -16843,12 +16858,14 @@ function student(){
 
         <div>
           <b class="text-lg">Data Murid</b>
+
           <p class="text-xs text-slate-500">
             Kelola data murid, kelas, halaqoh, dan status.
           </p>
         </div>
 
         <div class="flex flex-wrap gap-2">
+
           ${
             current.role === 'koordinator'
             ? `
@@ -16884,6 +16901,7 @@ function student(){
             `
             : ''
           }
+
           ${
             current.role !== 'koordinator'
             ? `
@@ -16931,30 +16949,60 @@ function student(){
       </div>
 
       <div class="overflow-x-auto">
+
         <table class="w-full text-sm">
 
           <thead>
+
             <tr class="bg-slate-50">
-<th class="p-3 text-left">No. Absen</th>
-<th class="p-3 text-left">Nama</th>
-<th class="p-3 text-left">NIS</th>
-<th class="p-3 text-left">Kelas</th>
-<th class="p-3 text-left">Halaqoh</th>
-<th class="p-3 text-left">Status</th>
-<th class="p-3 text-left">Aksi</th>
+
+              <th class="p-3 text-left">
+                No. Absen
+              </th>
+
+              <th class="p-3 text-left">
+                Nama
+              </th>
+
+              <th class="p-3 text-left">
+                NIS
+              </th>
+
+              <th class="p-3 text-left">
+                Kelas
+              </th>
+
+              <th class="p-3 text-left">
+                Halaqoh
+              </th>
+
+              <th class="p-3 text-left">
+                Status
+              </th>
+
+              <th class="p-3 text-left">
+                Aksi
+              </th>
+
             </tr>
+
           </thead>
 
           <tbody id="studentTableBody">
 
             ${
               visibleStudents.length
+
               ?
-              visibleStudents.map(s=>`
+
+              visibleStudents.map(s => `
+
                 <tr class="border-t hover:bg-slate-50">
-<td class="p-3">
-  ${s.nomor_absen || '-'}
-</td>
+
+                  <td class="p-3">
+                    ${s.nomor_absen || '-'}
+                  </td>
+
                   <td class="p-3">
                     ${esc(s.nama)}
                   </td>
@@ -16965,16 +17013,30 @@ function student(){
 
                   <td class="p-3">
                     ${esc(
-                      cache.classes.find(c=>c.id===s.class_id)?.nama || '-'
+                      cache.classes.find(
+                        c => c.id === s.class_id
+                      )?.nama || '-'
                     )}
                   </td>
 
                   <td class="p-3">
+                    ${esc(
+                      cache.halaqoh.find(
+                        h => h.id === s.halaqoh_id
+                      )?.nama || '-'
+                    )}
+                  </td>
+
+                  <td class="p-3">
+
                     ${
                       s.aktif !== false
+
                       ? '<span class="text-emerald-600 font-medium">Aktif</span>'
+
                       : '<span class="text-slate-500">Nonaktif</span>'
                     }
+
                   </td>
 
                   <td class="p-3 whitespace-nowrap">
@@ -16994,13 +17056,22 @@ function student(){
                   </td>
 
                 </tr>
+
               `).join('')
+
               :
+
               `
                 <tr>
-                  <td colspan="7" class="p-6 text-center text-slate-500">
+
+                  <td
+                    colspan="7"
+                    class="p-6 text-center text-slate-500">
+
                     Belum ada data murid.
+
                   </td>
+
                 </tr>
               `
             }
@@ -17008,6 +17079,7 @@ function student(){
           </tbody>
 
         </table>
+
       </div>
 
     </div>
@@ -17052,8 +17124,14 @@ async function importStudentRows(){
 
   rows.forEach((row, index) => {
 
-    const nama = String(row.nama || '').trim();
-    const nis = String(row.nis || '').trim() || null;
+   const nomorAbsen =
+  String(row.nomor_absen || '').trim();
+
+const nama =
+  String(row.nama || '').trim();
+
+const nis =
+  String(row.nis || '').trim() || null;
     const kelas = String(row.kelas || '').trim();
     const halaqoh = String(row.halaqoh || '').trim();
 
@@ -17120,14 +17198,23 @@ async function importStudentRows(){
       }
     }
 
-    validRows.push({
-      nama,
-      nis,
-      class_id: classData?.id || null,
-      halaqoh_id: halaqohData?.id || null,
-      aktif: true
-    });
+   validRows.push({
+  nomor_absen: nomorAbsen
+    ? Number(nomorAbsen)
+    : null,
 
+  nama,
+
+  nis,
+
+  class_id:
+    classData?.id || null,
+
+  halaqoh_id:
+    halaqohData?.id || null,
+
+  aktif: true
+});
   });
 
   if(!validRows.length){
@@ -17376,55 +17463,72 @@ function filterStudentView(type){
         .filter(x => x.teacher_id === current.id)
         .map(x => x.halaqoh_id);
 
- let students = [...cache.students].sort((a, b) => {
-  const noA = Number(a.nomor_absen) || 999999;
-  const noB = Number(b.nomor_absen) || 999999;
+  let students = [...cache.students];
 
-  return noA - noB;
-});
+  /*
+    FILTER DATA
+  */
 
   if(current.role !== 'koordinator'){
 
     if(type === 'class'){
-      students = cache.students.filter(s =>
+
+      students = students.filter(s =>
         assignedClassIds.includes(s.class_id)
       );
+
     }
 
     else if(type === 'halaqoh'){
-      students = cache.students.filter(s =>
+
+      students = students.filter(s =>
         assignedHalaqohIds.includes(s.halaqoh_id)
       );
+
     }
 
     else {
-      students = cache.students.filter(s =>
+
+      students = students.filter(s =>
         assignedClassIds.includes(s.class_id) ||
         assignedHalaqohIds.includes(s.halaqoh_id)
       );
+
     }
 
   }
-// Urutkan murid berdasarkan nomor absen
-students.sort((a,b) => {
 
-  const absenA =
-    Number(a.nomor_absen || 999999);
+  /*
+    URUTKAN BERDASARKAN NOMOR ABSEN
+  */
 
-  const absenB =
-    Number(b.nomor_absen || 999999);
+  students.sort((a,b) => {
 
-  return absenA - absenB;
+    const noA =
+      Number(a.nomor_absen) || 999999;
 
-});
+    const noB =
+      Number(b.nomor_absen) || 999999;
 
+    return noA - noB;
+
+  });
+
+  const tbody = $('studentTableBody');
 
   if(!tbody) return;
 
   tbody.innerHTML = students.length
+
     ?
-    students.map(s=>`
+
+    students.map(s => `
+
       <tr class="border-t hover:bg-slate-50">
+
+        <td class="p-3">
+          ${s.nomor_absen || '-'}
+        </td>
 
         <td class="p-3">
           ${esc(s.nama)}
@@ -17436,22 +17540,30 @@ students.sort((a,b) => {
 
         <td class="p-3">
           ${esc(
-            cache.classes.find(c=>c.id===s.class_id)?.nama || '-'
+            cache.classes.find(
+              c => c.id === s.class_id
+            )?.nama || '-'
           )}
         </td>
 
         <td class="p-3">
           ${esc(
-            cache.halaqoh.find(h=>h.id===s.halaqoh_id)?.nama || '-'
+            cache.halaqoh.find(
+              h => h.id === s.halaqoh_id
+            )?.nama || '-'
           )}
         </td>
 
         <td class="p-3">
+
           ${
             s.aktif !== false
+
             ? '<span class="text-emerald-600 font-medium">Aktif</span>'
+
             : '<span class="text-slate-500">Nonaktif</span>'
           }
+
         </td>
 
         <td class="p-3 whitespace-nowrap">
@@ -17471,15 +17583,27 @@ students.sort((a,b) => {
         </td>
 
       </tr>
+
     `).join('')
+
     :
+
     `
+
       <tr>
-        <td colspan="6" class="p-6 text-center text-slate-500">
+
+        <td
+          colspan="7"
+          class="p-6 text-center text-slate-500">
+
           Belum ada data murid pada pilihan tersebut.
+
         </td>
+
       </tr>
+
     `;
+
 }
 function downloadStudentTemplate(){
 
@@ -17564,32 +17688,41 @@ function openStudentImport(){
       }
 
       const normalizedRows = rows.map(row => ({
-        nama:
-          String(
-            row['Nama Murid'] ??
-            row['Nama'] ??
-            ''
-          ).trim(),
 
-        nis:
-          String(
-            row['NIS'] ??
-            ''
-          ).trim(),
+  nomor_absen:
+    String(
+      row['Nomor Absen'] ??
+      row['No. Absen'] ??
+      row['No Absen'] ??
+      ''
+    ).trim(),
 
-        kelas:
-          String(
-            row['Kelas'] ??
-            ''
-          ).trim(),
+  nama:
+    String(
+      row['Nama Murid'] ??
+      row['Nama'] ??
+      ''
+    ).trim(),
 
-        halaqoh:
-          String(
-            row['Halaqoh'] ??
-            ''
-          ).trim()
-      }));
+  nis:
+    String(
+      row['NIS'] ??
+      ''
+    ).trim(),
 
+  kelas:
+    String(
+      row['Kelas'] ??
+      ''
+    ).trim(),
+
+  halaqoh:
+    String(
+      row['Halaqoh'] ??
+      ''
+    ).trim()
+
+}));
       window.studentImportPreview =
         normalizedRows;
 
