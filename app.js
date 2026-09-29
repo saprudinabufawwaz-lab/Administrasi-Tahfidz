@@ -15859,7 +15859,10 @@ async function saveGuru(id){
         class_id: x.value
       })
     );
-
+console.log('SAVE GURU');
+console.log('ID:', id);
+console.log('STATUS:', status);
+console.log('NIPY:', nipy);
 
   // Update status dan NIPY guru
 
