@@ -17503,14 +17503,15 @@ function downloadStudentTemplate(){
     );
   }
 
-  const data = [
-    {
-      'Nama Murid': '',
-      'NIS': '',
-      'Kelas': '',
-      'Halaqoh': ''
-    }
-  ];
+const data = [
+  {
+    'Nomor Absen': '',
+    'Nama Murid': '',
+    'NIS': '',
+    'Kelas': '',
+    'Halaqoh': ''
+  }
+];
 
   const worksheet = XLSX.utils.json_to_sheet(data);
 
