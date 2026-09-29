@@ -17418,7 +17418,6 @@ students.sort((a,b) => {
 
 });
 
-  <thead>
 
   if(!tbody) return;
 
