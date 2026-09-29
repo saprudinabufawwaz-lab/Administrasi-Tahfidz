@@ -16935,7 +16935,6 @@ function student(){
 
           <thead>
             <tr class="bg-slate-50">
-              <th class="p-3 text-left">No. Absen</th>
 <th class="p-3 text-left">No. Absen</th>
 <th class="p-3 text-left">Nama</th>
 <th class="p-3 text-left">NIS</th>
@@ -17425,7 +17424,7 @@ students.sort((a,b) => {
 
 });
 
-  const tbody = $('studentTableBody');
+  <thead>
 
   if(!tbody) return;
 
