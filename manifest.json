@@ -1,0 +1,10 @@
+{
+  "name": "Administrasi Tahfidz",
+  "short_name": "Adm Tahfidz",
+  "description": "Aplikasi Administrasi Tahfidz SDITQ Abu Bakr Ash-Shiddiq",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "orientation": "portrait"
+}
