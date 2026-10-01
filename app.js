@@ -17102,7 +17102,14 @@ async function importStudentRows(){
 
   const rows = window.studentImportRows;
 
+  // Normalisasi untuk pengecekan nama/NIS
   const normalize = value =>
+    String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+
+  const normalizeNis = value =>
     String(value || '')
       .trim()
       .toLowerCase();
@@ -17122,18 +17129,41 @@ async function importStudentRows(){
   const validRows = [];
   const invalidRows = [];
 
+  // Ambil seluruh siswa yang sudah ada
+  const existingResult = await sb
+    .from('students')
+    .select('id, nama, nis');
+
+  if(existingResult.error){
+    return toast(
+      'Gagal mengecek data murid yang sudah ada: ' +
+      existingResult.error.message,
+      'err'
+    );
+  }
+
+  const existingStudents = existingResult.data || [];
+
+  // Untuk mencegah duplikat juga di dalam file Excel itu sendiri
+  const importedNames = new Set();
+  const importedNis = new Set();
+
   rows.forEach((row, index) => {
 
-   const nomorAbsen =
-  String(row.nomor_absen || '').trim();
+    const nomorAbsen =
+      String(row.nomor_absen || '').trim();
 
-const nama =
-  String(row.nama || '').trim();
+    const nama =
+      String(row.nama || '').trim();
 
-const nis =
-  String(row.nis || '').trim() || null;
-    const kelas = String(row.kelas || '').trim();
-    const halaqoh = String(row.halaqoh || '').trim();
+    const nis =
+      String(row.nis || '').trim() || null;
+
+    const kelas =
+      String(row.kelas || '').trim();
+
+    const halaqoh =
+      String(row.halaqoh || '').trim();
 
     if(!nama){
       invalidRows.push(
@@ -17142,40 +17172,122 @@ const nis =
       return;
     }
 
+    /*
+      ==========================================
+      CEK DUPLIKAT DENGAN DATA YANG SUDAH ADA
+      ==========================================
+    */
+
+    const namaNormal =
+      normalize(nama);
+
+    const nisNormal =
+      nis ? normalizeNis(nis) : '';
+
+    const duplicateName =
+      existingStudents.some(s =>
+        normalize(s.nama) === namaNormal
+      );
+
+    const duplicateNis =
+      nisNormal &&
+      existingStudents.some(s =>
+        normalizeNis(s.nis) === nisNormal
+      );
+
+    if(duplicateName && duplicateNis){
+
+      invalidRows.push(
+        `Baris ${index + 2}: "${nama}" ditolak — nama dan NIS sudah ada`
+      );
+
+      return;
+    }
+
+    if(duplicateName){
+
+      invalidRows.push(
+        `Baris ${index + 2}: "${nama}" ditolak — nama sudah ada`
+      );
+
+      return;
+    }
+
+    if(duplicateNis){
+
+      invalidRows.push(
+        `Baris ${index + 2}: "${nama}" ditolak — NIS "${nis}" sudah ada`
+      );
+
+      return;
+    }
+
+    /*
+      ==========================================
+      CEK DUPLIKAT DI DALAM FILE YANG DIIMPOR
+      ==========================================
+    */
+
+    if(importedNames.has(namaNormal)){
+
+      invalidRows.push(
+        `Baris ${index + 2}: "${nama}" ditolak — nama duplikat di file impor`
+      );
+
+      return;
+    }
+
+    if(nisNormal && importedNis.has(nisNormal)){
+
+      invalidRows.push(
+        `Baris ${index + 2}: "${nama}" ditolak — NIS "${nis}" duplikat di file impor`
+      );
+
+      return;
+    }
+
+    /*
+      ==========================================
+      CARI KELAS
+      ==========================================
+    */
+
     const classData = cache.classes.find(x =>
       normalize(x.nama) === normalize(kelas)
     );
 
     if(kelas && !classData){
+
       invalidRows.push(
         `Baris ${index + 2}: Kelas "${kelas}" tidak ditemukan`
       );
+
       return;
     }
+
+    /*
+      ==========================================
+      CARI HALAQOH
+      ==========================================
+    */
 
     const halaqohData = cache.halaqoh.find(x =>
       normalize(x.nama) === normalize(halaqoh)
     );
 
     if(halaqoh && !halaqohData){
+
       invalidRows.push(
         `Baris ${index + 2}: Halaqoh "${halaqoh}" tidak ditemukan`
       );
+
       return;
     }
 
     /*
-      ATURAN PENUGASAN GURU:
-
-      1. Jika guru ditugaskan pada kelas tersebut,
-         maka guru boleh memasukkan murid ke kelas itu
-         tanpa melihat halaqohnya.
-
-      2. Jika kelas bukan penugasan guru, tetapi
-         halaqoh tersebut memang penugasannya,
-         maka tetap boleh.
-
-      3. Jika tidak memenuhi keduanya, ditolak.
+      ==========================================
+      ATURAN PENUGASAN GURU
+      ==========================================
     */
 
     if(current.role !== 'koordinator'){
@@ -17198,43 +17310,95 @@ const nis =
       }
     }
 
-   validRows.push({
-  nomor_absen: nomorAbsen
-    ? Number(nomorAbsen)
-    : null,
+    /*
+      ==========================================
+      DATA VALID
+      ==========================================
+    */
 
-  nama,
+    validRows.push({
+      nomor_absen: nomorAbsen
+        ? Number(nomorAbsen)
+        : null,
 
-  nis,
+      nama,
 
-  class_id:
-    classData?.id || null,
+      nis,
 
-  halaqoh_id:
-    halaqohData?.id || null,
+      class_id:
+        classData?.id || null,
 
-  aktif: true
-});
+      halaqoh_id:
+        halaqohData?.id || null,
+
+      aktif: true
+    });
+
+    // Tandai agar tidak terjadi duplikat
+    // di dalam file yang sama
+    importedNames.add(namaNormal);
+
+    if(nisNormal){
+      importedNis.add(nisNormal);
+    }
+
   });
 
+  /*
+    ==========================================
+    JIKA TIDAK ADA DATA VALID
+    ==========================================
+  */
+
   if(!validRows.length){
+
+    let pesan =
+      'Tidak ada data baru yang dapat diimpor.';
+
+    if(invalidRows.length){
+      pesan +=
+        `\n\nSemua ${invalidRows.length} baris ditolak karena data sudah ada atau tidak valid.`;
+    }
+
+    alert(pesan);
 
     return toast(
       'Tidak ada data valid yang dapat diimpor',
       'err'
     );
-
   }
+
+  /*
+    ==========================================
+    INSERT DATA BARU
+    ==========================================
+  */
 
   const result = await sb
     .from('students')
     .insert(validRows);
 
   if(result.error){
-    return toast(result.error.message,'err');
+
+    return toast(
+      result.error.message,
+      'err'
+    );
   }
 
+  /*
+    ==========================================
+    REFRESH DATA
+    ==========================================
+  */
+
   await loadAll();
+
+  /*
+    ==========================================
+    HASIL IMPOR
+    ==========================================
+  */
 
   toast(
     `${validRows.length} murid berhasil diimpor`
