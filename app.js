@@ -12092,7 +12092,7 @@ function exportQuarterlyReportsExcel(){
       return {
         'Periode': r.period_start || '',
         'Nama Murid': student?.nama || '',
-        'NIS': student?.nis || '',
+       'NIS/NISN': student?.nis || '',
         'Kelas': cls.nama || '',
         'Bulan 1': j1?.hafalan || '',
         'Bulan 2': j2?.hafalan || '',
@@ -12114,7 +12114,7 @@ function exportQuarterlyReportsExcel(){
         : [{
             'Periode': '',
             'Nama Murid': '',
-            'NIS': '',
+            'NIS/NISN': '',
             'Kelas': cls.nama || '',
             'Bulan 1': '',
             'Bulan 2': '',
@@ -12448,8 +12448,8 @@ const rows = reports
             </th>
 
             <th class="p-3 text-left">
-              NIS
-            </th>
+  NIS/NISN
+</th>
 
             <th class="p-3 text-left">
               Periode
@@ -16964,9 +16964,9 @@ function student(){
                 Nama
               </th>
 
-              <th class="p-3 text-left">
-                NIS
-              </th>
+             <th class="p-3 text-left">
+  NIS/NISN
+</th>
 
               <th class="p-3 text-left">
                 Kelas
@@ -17295,14 +17295,14 @@ function openStudent(id=''){
           class="mt-1 w-full p-2.5 border rounded-lg">
       </label>
 
-      <label class="block text-sm font-medium">
-        NIS
-        <input
-          id="snis"
-          value="${esc(s?.nis || '')}"
-          placeholder="NIS"
-          class="mt-1 w-full p-2.5 border rounded-lg">
-      </label>
+    <label class="block text-sm font-medium">
+  NIS/NISN
+  <input
+    id="snis"
+    value="${esc(s?.nis || '')}"
+    placeholder="NIS/NISN"
+    class="mt-1 w-full p-2.5 border rounded-lg">
+</label>
 
       ${select('sc','Kelas',cs)}
 
@@ -17618,7 +17618,7 @@ const data = [
   {
     'Nomor Absen': '',
     'Nama Murid': '',
-    'NIS': '',
+    'NIS/NISN': '',
     'Kelas': '',
     'Halaqoh': ''
   }
@@ -17704,11 +17704,12 @@ function openStudentImport(){
       ''
     ).trim(),
 
-  nis:
-    String(
-      row['NIS'] ??
-      ''
-    ).trim(),
+ nis:
+  String(
+    row['NIS/NISN'] ??
+    row['NIS'] ??
+    ''
+  ).trim(),
 
   kelas:
     String(
@@ -17838,9 +17839,9 @@ function showStudentImportPreview(rows){
                 Nama Murid
               </th>
 
-              <th class="p-3 text-left">
-                NIS
-              </th>
+            <th class="p-3 text-left">
+  NIS/NISN
+</th>
 
               <th class="p-3 text-left">
                 Kelas
