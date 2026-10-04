@@ -16317,6 +16317,94 @@ function settingsPage(){
   </span>
 
 </label>
+<!-- DATA PENANDATANGAN -->
+
+<div class="md:col-span-2 border-t pt-5 mt-2">
+
+  <div class="mb-4">
+
+    <h4 class="font-bold text-base">
+      ✍️ Data Penandatangan
+    </h4>
+
+    <p class="text-sm text-slate-500">
+      Data ini digunakan otomatis pada Rapor Tahfidz dan Sertifikat.
+    </p>
+
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+
+    <!-- KEPALA SEKOLAH -->
+
+    <label class="block text-sm font-medium">
+
+      Nama Kepala Sekolah
+
+      <input
+        id="setHeadmasterName"
+        type="text"
+        value="${esc(settings.headmaster_name || '')}"
+        class="mt-1 w-full p-3 border rounded-lg"
+        placeholder="Contoh: Ahmad Fauzan, S.Pd."
+      >
+
+    </label>
+
+
+    <!-- NIPY KEPALA SEKOLAH -->
+
+    <label class="block text-sm font-medium">
+
+      NIPY Kepala Sekolah
+
+      <input
+        id="setHeadmasterNipy"
+        type="text"
+        value="${esc(settings.headmaster_nipy || '')}"
+        class="mt-1 w-full p-3 border rounded-lg"
+        placeholder="Contoh: NIPY. 123456789"
+      >
+
+    </label>
+
+
+    <!-- KOORDINATOR -->
+
+    <label class="block text-sm font-medium">
+
+      Nama Koordinator Tahfidz
+
+      <input
+        id="setCoordinatorName"
+        type="text"
+        value="${esc(settings.coordinator_name || '')}"
+        class="mt-1 w-full p-3 border rounded-lg"
+        placeholder="Contoh: Ustadz Ahmad"
+      >
+
+    </label>
+
+
+    <!-- NIPY KOORDINATOR -->
+
+    <label class="block text-sm font-medium">
+
+      NIPY Koordinator Tahfidz
+
+      <input
+        id="setCoordinatorNipy"
+        type="text"
+        value="${esc(settings.coordinator_nipy || '')}"
+        class="mt-1 w-full p-3 border rounded-lg"
+        placeholder="Contoh: NIPY. 123456789"
+      >
+
+    </label>
+
+  </div>
+
+</div>
 
           <!-- BACKGROUND BERANDA -->
 
@@ -16647,34 +16735,48 @@ async function saveSettings(e){
   }
 
 
-  const next = {
+ const next = {
 
-    id: 1,
+  id: 1,
 
-    institution_name:
-      $('setName').value.trim(),
+  institution_name:
+    $('setName').value.trim(),
 
-    logo_url,
+  logo_url,
 
-    foundation_logo_url,
+  foundation_logo_url,
 
-    background_url,
+  background_url,
 
-    certificate_background_url,
+  certificate_background_url,
 
-    theme:
-      $('setTheme').value,
-      rapor_tanggal_terbit:
-  $('setRaporTanggalTerbit')?.value || null,
+  theme:
+    $('setTheme').value,
 
-    updated_by:
-      current.id,
+  rapor_tanggal_terbit:
+    $('setRaporTanggalTerbit')?.value || null,
 
-    updated_at:
-      new Date().toISOString()
+  /* DATA PENANDATANGAN */
 
-  };
+  headmaster_name:
+    $('setHeadmasterName')?.value.trim() || '',
 
+  headmaster_nipy:
+    $('setHeadmasterNipy')?.value.trim() || '',
+
+  coordinator_name:
+    $('setCoordinatorName')?.value.trim() || '',
+
+  coordinator_nipy:
+    $('setCoordinatorNipy')?.value.trim() || '',
+
+  updated_by:
+    current.id,
+
+  updated_at:
+    new Date().toISOString()
+
+};
 
   const {
     data,
