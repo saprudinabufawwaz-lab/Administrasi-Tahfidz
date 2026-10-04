@@ -3639,14 +3639,14 @@ function renderRaporPreview(data){
                     <div
                       class="rp-sign-nip">
 
-                      ${
-                        settings?.headmaster_nip
-                          ? 'NIPY. ' +
-                            esc(
-                              settings.headmaster_nip
-                            )
-                          : ''
-                      }
+                     ${
+  settings?.headmaster_nipy
+    ? 'NIPY. ' +
+      esc(
+        settings.headmaster_nipy
+      )
+    : ''
+}
 
                     </div>
 
@@ -13638,21 +13638,21 @@ if(predicate === 'Jayyid'){
      DATA TANDA TANGAN
   ===================================================== */
 
-  const headmasterName =
-    settings.headmaster_name ||
-    'Adetya Nur Fajar, S.Pd., Gr';
+  /* =====================================================
+   DATA TANDA TANGAN
+===================================================== */
 
-  const headmasterNip =
-    settings.headmaster_nip ||
-    '02221234';
+const headmasterName =
+  settings.headmaster_name || '';
 
-  const coordinatorName =
-    settings.tahfidz_coordinator_name ||
-    'Saprudin';
+const headmasterNipy =
+  settings.headmaster_nipy || '';
 
-  const coordinatorNip =
-    settings.tahfidz_coordinator_nip ||
-    '02220404';
+const coordinatorName =
+  settings.coordinator_name || '';
+
+const coordinatorNipy =
+  settings.coordinator_nipy || '';
 
 
   /* =====================================================
@@ -14508,11 +14508,11 @@ body{
       </div>
 
 
-      <div class="signature-nip">
+     <div class="signature-nip">
 
-        NIPY. ${esc(headmasterNip)}
+  NIPY. ${esc(headmasterNipy)}
 
-      </div>
+</div>
 
     </div>
 
@@ -14543,12 +14543,11 @@ body{
       </div>
 
 
-      <div class="signature-nip">
+     <div class="signature-nip">
 
-        NIPY. ${esc(coordinatorNip)}
+  NIPY. ${esc(coordinatorNipy)}
 
-      </div>
-
+</div>
     </div>
 
 
