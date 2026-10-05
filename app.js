@@ -11311,8 +11311,52 @@ function journal(){
 
   const ss = cache.students;
 
-  const rows = cache.journals
+  let rows = cache.journals
     .filter(j => current.role === 'koordinator' || j.teacher_id === current.id);
+
+  // Ambil daftar bulan yang tersedia
+  const months = [...new Set(
+    rows
+      .map(j => j.month_start)
+      .filter(Boolean)
+      .map(x => String(x).slice(0,7))
+  )].sort().reverse();
+
+  // Bulan yang sedang dipilih
+  const selectedMonth =
+    window.selectedJournalMonth ||
+    months[0] ||
+    '';
+
+  // Filter jurnal berdasarkan bulan
+  const filteredRows = selectedMonth
+    ? rows.filter(j =>
+        String(j.month_start || '').slice(0,7) === selectedMonth
+      )
+    : rows;
+
+  function formatMonth(value){
+    if(!value) return '-';
+
+    const [year, month] = String(value).slice(0,7).split('-');
+
+    const namaBulan = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
+    ];
+
+    return `${namaBulan[Number(month)-1]} ${year}`;
+  }
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
@@ -11334,12 +11378,63 @@ function journal(){
 
       </div>
 
+      <!-- FILTER BULAN -->
+      <div class="mb-5 flex flex-col sm:flex-row sm:items-center gap-2">
+
+        <label class="text-sm font-medium text-slate-700">
+          Tampilkan Bulan
+        </label>
+
+        <select
+          id="journalMonthFilter"
+          onchange="window.selectedJournalMonth=this.value; go('journal')"
+          class="border rounded-lg px-3 py-2 text-sm bg-white">
+
+          ${
+            months.length
+            ?
+            months.map(m => `
+              <option
+                value="${m}"
+                ${m === selectedMonth ? 'selected' : ''}>
+                ${formatMonth(m)}
+              </option>
+            `).join('')
+            :
+            `
+              <option value="">
+                Belum ada jurnal
+              </option>
+            `
+          }
+
+        </select>
+
+      </div>
+
+      <!-- INFO BULAN -->
+      ${
+        selectedMonth
+        ?
+        `
+          <div class="mb-3 text-sm text-slate-600">
+            Menampilkan jurnal:
+            <b class="text-emerald-700">
+              ${formatMonth(selectedMonth)}
+            </b>
+          </div>
+        `
+        :
+        ''
+      }
+
       <div class="overflow-x-auto">
 
         <table class="w-full text-sm">
 
           <thead>
             <tr class="bg-slate-50">
+
               <th class="p-3 text-left">Bulan</th>
               <th class="p-3 text-left">Murid</th>
               <th class="p-3 text-left">Kelas</th>
@@ -11347,17 +11442,20 @@ function journal(){
               <th class="p-3 text-left">Hafalan</th>
               <th class="p-3 text-left">Catatan</th>
               <th class="p-3 text-left">Aksi</th>
+
             </tr>
           </thead>
 
           <tbody>
 
             ${
-              rows.length
+              filteredRows.length
               ?
-              rows.map(j => {
+              filteredRows.map(j => {
 
-                const s = ss.find(x => x.id === j.student_id);
+                const s = ss.find(
+                  x => x.id === j.student_id
+                );
 
                 const h = cache.halaqoh.find(
                   x => x.id === j.halaqoh_id
@@ -11367,7 +11465,7 @@ function journal(){
                   <tr class="border-t hover:bg-slate-50">
 
                     <td class="p-3">
-                      ${esc(j.month_start)}
+                      ${esc(formatMonth(j.month_start))}
                     </td>
 
                     <td class="p-3">
@@ -11417,11 +11515,19 @@ function journal(){
               :
               `
                 <tr>
+
                   <td
                     colspan="7"
                     class="p-6 text-center text-slate-500">
-                    Belum ada jurnal.
+
+                    ${
+                      selectedMonth
+                      ? `Belum ada jurnal untuk ${formatMonth(selectedMonth)}.`
+                      : 'Belum ada jurnal.'
+                    }
+
                   </td>
+
                 </tr>
               `
             }
@@ -11435,8 +11541,6 @@ function journal(){
     </div>
   `;
 }
-
-
 function openJournal(id=''){
 
   const record = id
