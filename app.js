@@ -11311,24 +11311,26 @@ function journal(){
 
   const ss = cache.students;
 
-  let rows = cache.journals
-    .filter(j => current.role === 'koordinator' || j.teacher_id === current.id);
+  const rows = cache.journals
+    .filter(j =>
+      current.role === 'koordinator' ||
+      j.teacher_id === current.id
+    );
 
-  // Ambil daftar bulan yang tersedia
-  const months = [...new Set(
-    rows
-      .map(j => j.month_start)
-      .filter(Boolean)
-      .map(x => String(x).slice(0,7))
-  )].sort().reverse();
+  // Bulan yang tersedia dari data jurnal
+  const months = [
+    ...new Set(
+      rows
+        .map(j => String(j.month_start || '').slice(0,7))
+        .filter(Boolean)
+    )
+  ].sort().reverse();
 
-  // Bulan yang sedang dipilih
+  // Filter yang sedang dipilih
   const selectedMonth =
-    window.selectedJournalMonth ||
-    months[0] ||
-    '';
+    window.selectedJournalMonth || '';
 
-  // Filter jurnal berdasarkan bulan
+  // Data sesuai filter
   const filteredRows = selectedMonth
     ? rows.filter(j =>
         String(j.month_start || '').slice(0,7) === selectedMonth
@@ -11336,9 +11338,11 @@ function journal(){
     : rows;
 
   function formatMonth(value){
+
     if(!value) return '-';
 
-    const [year, month] = String(value).slice(0,7).split('-');
+    const [year, month] =
+      String(value).slice(0,7).split('-');
 
     const namaBulan = [
       'Januari',
@@ -11364,7 +11368,10 @@ function journal(){
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
 
         <div>
-          <b class="text-lg">Jurnal Tahfidz Bulanan</b>
+          <b class="text-lg">
+            Jurnal Tahfidz Bulanan
+          </b>
+
           <p class="text-xs text-slate-500">
             Pilih halaqoh → murid. Tidak ada input nama manual.
           </p>
@@ -11379,78 +11386,84 @@ function journal(){
       </div>
 
       <!-- FILTER BULAN -->
-      <div class="mb-5 flex flex-col sm:flex-row sm:items-center gap-2">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-5">
 
         <label class="text-sm font-medium text-slate-700">
-          Tampilkan Bulan
+          Filter Bulan
         </label>
 
         <select
-          id="journalMonthFilter"
-          onchange="window.selectedJournalMonth=this.value; go('journal')"
-          class="border rounded-lg px-3 py-2 text-sm bg-white">
+          onchange="
+            window.selectedJournalMonth = this.value;
+            go('journal');
+          "
+          class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+
+          <option value="">
+            Semua Bulan
+          </option>
 
           ${
-            months.length
-            ?
             months.map(m => `
               <option
                 value="${m}"
-                ${m === selectedMonth ? 'selected' : ''}>
+                ${selectedMonth === m ? 'selected' : ''}>
                 ${formatMonth(m)}
               </option>
             `).join('')
-            :
-            `
-              <option value="">
-                Belum ada jurnal
-              </option>
-            `
           }
 
         </select>
 
       </div>
 
-      <!-- INFO BULAN -->
-      ${
-        selectedMonth
-        ?
-        `
-          <div class="mb-3 text-sm text-slate-600">
-            Menampilkan jurnal:
-            <b class="text-emerald-700">
-              ${formatMonth(selectedMonth)}
-            </b>
-          </div>
-        `
-        :
-        ''
-      }
-
       <div class="overflow-x-auto">
 
         <table class="w-full text-sm">
 
           <thead>
+
             <tr class="bg-slate-50">
 
-              <th class="p-3 text-left">Bulan</th>
-              <th class="p-3 text-left">Murid</th>
-              <th class="p-3 text-left">Kelas</th>
-              <th class="p-3 text-left">Halaqoh</th>
-              <th class="p-3 text-left">Hafalan</th>
-              <th class="p-3 text-left">Catatan</th>
-              <th class="p-3 text-left">Aksi</th>
+              <th class="p-3 text-left">
+                Bulan
+              </th>
+
+              <th class="p-3 text-left">
+                Murid
+              </th>
+
+              <th class="p-3 text-left">
+                Kelas
+              </th>
+
+              <th class="p-3 text-left">
+                Halaqoh
+              </th>
+
+              <th class="p-3 text-left">
+                Hafalan
+              </th>
+
+              <th class="p-3 text-left">
+                Catatan
+              </th>
+
+              <th class="p-3 text-left">
+                Aksi
+              </th>
 
             </tr>
+
           </thead>
 
           <tbody>
 
             ${
               filteredRows.length
+
               ?
+
               filteredRows.map(j => {
 
                 const s = ss.find(
@@ -11461,7 +11474,13 @@ function journal(){
                   x => x.id === j.halaqoh_id
                 );
 
+                const kelas =
+                  cache.classes.find(
+                    x => x.id === s?.class_id
+                  )?.nama || '-';
+
                 return `
+
                   <tr class="border-t hover:bg-slate-50">
 
                     <td class="p-3">
@@ -11473,11 +11492,7 @@ function journal(){
                     </td>
 
                     <td class="p-3">
-                      ${esc(
-                        cache.classes.find(
-                          x => x.id === s?.class_id
-                        )?.nama || '-'
-                      )}
+                      ${esc(kelas)}
                     </td>
 
                     <td class="p-3">
@@ -11509,11 +11524,15 @@ function journal(){
                     </td>
 
                   </tr>
+
                 `;
 
               }).join('')
+
               :
+
               `
+
                 <tr>
 
                   <td
@@ -11522,13 +11541,14 @@ function journal(){
 
                     ${
                       selectedMonth
-                      ? `Belum ada jurnal untuk ${formatMonth(selectedMonth)}.`
-                      : 'Belum ada jurnal.'
+                        ? `Belum ada jurnal untuk ${formatMonth(selectedMonth)}.`
+                        : 'Belum ada jurnal.'
                     }
 
                   </td>
 
                 </tr>
+
               `
             }
 
@@ -11560,6 +11580,13 @@ function openJournal(id=''){
         )
         .filter(Boolean);
 
+  // Bulan otomatis = bulan sekarang
+  const now = new Date();
+
+  const currentMonth =
+    now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2,'0');
+
   $('modalBox').innerHTML = `
 
     <h3 class="font-bold text-lg mb-4">
@@ -11585,6 +11612,9 @@ function openJournal(id=''){
           id="jm"
           type="month"
           required
+          value="${record?.month_start
+            ? String(record.month_start).slice(0,7)
+            : currentMonth}"
           class="mt-1 w-full p-2.5 border rounded-lg">
 
       </label>
@@ -11639,11 +11669,6 @@ function openJournal(id=''){
 
     $('js').value = record.student_id || '';
 
-    $('jm').value =
-      record.month_start
-        ? String(record.month_start).slice(0,7)
-        : '';
-
     $('jhaf').value =
       record.hafalan || '';
 
@@ -11654,7 +11679,6 @@ function openJournal(id=''){
 
   openModal();
 }
-
 
 function fillStudents(hid,sid){
 
