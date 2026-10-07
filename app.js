@@ -13104,11 +13104,12 @@ async function deleteReport(id){
 }
 function exam(){
 
-  const rows = cache.exams.filter(
-    x =>
-      current.role === 'koordinator' ||
-      x.teacher_id === current.id
-  );
+  const rows =
+    cache.exams.filter(
+      x =>
+        current.role === 'koordinator' ||
+        x.teacher_id === current.id
+    );
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
@@ -13116,53 +13117,117 @@ function exam(){
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
 
         <div>
-          <b class="text-lg">Ujian Kenaikan Juz</b>
+
+          <b class="text-lg">
+            Ujian Kenaikan Juz
+          </b>
 
           <p class="text-xs text-slate-500">
             Pengajuan, verifikasi, dan hasil ujian kenaikan juz.
           </p>
+
         </div>
+
 
         <button
           onclick="openExam()"
           class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
+
           + Pengajuan
+
         </button>
 
       </div>
+
 
       <div class="overflow-x-auto">
 
         <table class="w-full text-sm">
 
           <thead>
+
             <tr class="bg-slate-50">
 
-              <th class="p-3 text-left">Murid</th>
-              <th class="p-3 text-left">Halaqoh</th>
-              <th class="p-3 text-left">Juz</th>
-              <th class="p-3 text-left">Tanggal</th>
-              <th class="p-3 text-left">Status</th>
-              <th class="p-3 text-left">Predikat</th>
-              <th class="p-3 text-left">Aksi</th>
+              <th class="p-3 text-left">
+                Murid
+              </th>
+
+              <th class="p-3 text-left">
+                Halaqoh
+              </th>
+
+              <th class="p-3 text-left">
+                Juz
+              </th>
+
+
+              ${
+                current.role === 'koordinator'
+                ?
+                `
+                  <th class="p-3 text-left">
+                    Guru Pengaju
+                  </th>
+                `
+                :
+                ''
+              }
+
+
+              <th class="p-3 text-left">
+                Tanggal
+              </th>
+
+              <th class="p-3 text-left">
+                Status
+              </th>
+
+              <th class="p-3 text-left">
+                Predikat
+              </th>
+
+              <th class="p-3 text-left">
+                Aksi
+              </th>
 
             </tr>
+
           </thead>
+
 
           <tbody>
 
             ${
               rows.length
+
               ?
+
               rows.map(x => {
 
-                const s = cache.students.find(
-                  a => a.id === x.student_id
-                );
+                const s =
+                  cache.students.find(
+                    a =>
+                      a.id === x.student_id
+                  );
 
-                const h = cache.halaqoh.find(
-                  a => a.id === x.halaqoh_id
-                );
+
+                const h =
+                  cache.halaqoh.find(
+                    a =>
+                      a.id === x.halaqoh_id
+                  );
+
+
+                /*
+                 * Cari guru yang mengajukan
+                 * berdasarkan teacher_id
+                 */
+                const teacher =
+                  cache.profiles.find(
+                    a =>
+                      a.id === x.teacher_id
+                  );
+
 
                 const eligible =
                   x.status === 'Lulus' &&
@@ -13171,120 +13236,191 @@ function exam(){
                     x.predikat === 'Jayyid Jiddan'
                   );
 
+
                 const alreadyRequested =
                   Array.isArray(cache.certificates) &&
                   cache.certificates.some(
-                    c => c.exam_request_id === x.id
+                    c =>
+                      c.exam_request_id === x.id
                   );
 
+
                 return `
+
                   <tr class="border-t hover:bg-slate-50">
 
                     <td class="p-3">
                       ${esc(s?.nama || '-')}
                     </td>
 
+
                     <td class="p-3">
                       ${esc(h?.nama || '-')}
                     </td>
+
 
                     <td class="p-3">
                       ${esc(x.juz || '-')}
                     </td>
 
+
+                    ${
+                      current.role === 'koordinator'
+                      ?
+                      `
+                        <td class="p-3">
+                          ${esc(teacher?.nama || '-')}
+                        </td>
+                      `
+                      :
+                      ''
+                    }
+
+
                     <td class="p-3">
                       ${esc(x.tanggal || '-')}
                     </td>
+
 
                     <td class="p-3">
 
                       ${
                         x.status === 'Lulus'
-                        ? '<span class="text-emerald-600 font-medium">Lulus</span>'
 
-                        : x.status === 'Tidak Lulus'
-                        ? '<span class="text-red-600 font-medium">Tidak Lulus</span>'
+                        ?
 
-                        : '<span class="text-amber-600 font-medium">Menunggu Verifikasi</span>'
+                        '<span class="text-emerald-600 font-medium">Lulus</span>'
+
+                        :
+
+                        x.status === 'Tidak Lulus'
+
+                        ?
+
+                        '<span class="text-red-600 font-medium">Tidak Lulus</span>'
+
+                        :
+
+                        '<span class="text-amber-600 font-medium">Menunggu Verifikasi</span>'
                       }
 
                     </td>
+
 
                     <td class="p-3">
                       ${esc(x.predikat || '-')}
                     </td>
 
+
                     <td class="p-3 whitespace-nowrap">
 
                       ${
                         current.role === 'koordinator'
+
                         ?
+
                         `
                           <button
                             onclick="verifyExam('${x.id}')"
                             class="text-emerald-700 hover:underline mr-3">
-                            ✏️ ${x.status === 'Menunggu Verifikasi' ? 'Verifikasi' : 'Edit Hasil'}
+
+                            ✏️ ${
+                              x.status === 'Menunggu Verifikasi'
+                              ? 'Verifikasi'
+                              : 'Edit Hasil'
+                            }
+
                           </button>
                         `
+
                         :
+
                         ''
                       }
 
+
                       ${
                         eligible && !alreadyRequested
+
                         ?
+
                         `
                           <button
                             onclick="requestCertificate('${x.id}')"
                             class="text-purple-700 hover:underline mr-3">
+
                             📜 Ajukan Sertifikat
+
                           </button>
                         `
+
                         :
+
                         ''
                       }
 
+
                       ${
                         alreadyRequested
+
                         ?
+
                         `
                           <span class="text-slate-500 mr-3">
+
                             📜 Sertifikat Diajukan
+
                           </span>
                         `
+
                         :
+
                         ''
                       }
+
 
                       <button
                         onclick="openExam('${x.id}')"
                         class="text-blue-600 hover:underline mr-3">
+
                         ✏️ Edit
+
                       </button>
+
 
                       <button
                         onclick="deleteExam('${x.id}')"
                         class="text-red-600 hover:underline">
+
                         🗑️ Hapus
+
                       </button>
 
                     </td>
 
                   </tr>
+
                 `;
 
               }).join('')
 
+
               :
 
               `
+
                 <tr>
+
                   <td
-                    colspan="7"
+                    colspan="${current.role === 'koordinator' ? 8 : 7}"
                     class="p-6 text-center text-slate-500">
+
                     Belum ada pengajuan ujian.
+
                   </td>
+
                 </tr>
+
               `
             }
 
