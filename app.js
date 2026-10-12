@@ -11308,6 +11308,7 @@ nipyGuru,
 
 function select(id,label,opts,placeholder='Pilih...'){return `<label class="block text-sm font-medium">${label}<select id="${id}" class="mt-1 w-full p-2.5 border rounded-lg"><option value="">${placeholder}</option>${opts.map(o=>`<option value="${o.id}">${esc(o.nama)}</option>`).join('')}</select></label>`}
 
+
 function journal() {
   const ss = cache.students;
 
@@ -11316,13 +11317,11 @@ function journal() {
     j.teacher_id === current.id
   );
 
-  // Bulan berjalan
   const now = new Date();
   const currentMonth =
     now.getFullYear() + '-' +
     String(now.getMonth() + 1).padStart(2, '0');
 
-  // Daftar bulan dari jurnal, termasuk bulan berjalan
   const months = [
     ...new Set([
       currentMonth,
@@ -11332,7 +11331,6 @@ function journal() {
     ])
   ].sort().reverse();
 
-  // Filter bulan
   const selectedMonth =
     window.selectedJournalMonth !== undefined
       ? window.selectedJournalMonth
@@ -11340,49 +11338,28 @@ function journal() {
         ? currentMonth
         : '';
 
-  // Filter halaqoh khusus Koordinator
   const selectedHalaqoh =
     window.selectedJournalHalaqoh || '';
 
-  // Data jurnal sesuai filter bulan dan halaqoh
-  const filteredRows = rows.filter(j => {
-    const cocokBulan =
-      !selectedMonth ||
-      String(j.month_start || '').slice(0, 7) === selectedMonth;
-
-    const cocokHalaqoh =
-      !selectedHalaqoh ||
-      j.halaqoh_id === selectedHalaqoh;
-
-    return cocokBulan && cocokHalaqoh;
-  });
-
-  // Format nama bulan
   function formatMonth(value) {
     if (!value) return '-';
 
-    const [year, month] =
-      String(value).slice(0, 7).split('-');
-
+    const [year, month] = String(value).slice(0, 7).split('-');
     const namaBulan = [
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember'
+      'Januari', 'Februari', 'Maret', 'April',
+      'Mei', 'Juni', 'Juli', 'Agustus',
+      'September', 'Oktober', 'November', 'Desember'
     ];
 
     return `${namaBulan[Number(month) - 1]} ${year}`;
   }
 
-  // Monitoring input jurnal khusus Koordinator
+  const filteredRows = rows.filter(j =>
+    (!selectedMonth ||
+      String(j.month_start || '').slice(0, 7) === selectedMonth) &&
+    (!selectedHalaqoh || j.halaqoh_id === selectedHalaqoh)
+  );
+
   const monitoring = current.role === 'koordinator'
     ? cache.teacherHalaqoh
         .map(t => {
@@ -11399,14 +11376,11 @@ function journal() {
           const sudahInput = cache.journals.some(j =>
             j.teacher_id === t.teacher_id &&
             j.halaqoh_id === t.halaqoh_id &&
-            (
-              !selectedMonth ||
-              String(j.month_start || '').slice(0, 7) === selectedMonth
-            )
+            (!selectedMonth ||
+              String(j.month_start || '').slice(0, 7) === selectedMonth)
           );
 
           return {
-            teacherId: t.teacher_id,
             halaqohId: t.halaqoh_id,
             guru: guru.nama || '-',
             halaqoh: halaqoh.nama || '-',
@@ -11415,8 +11389,7 @@ function journal() {
         })
         .filter(Boolean)
         .filter(x =>
-          !selectedHalaqoh ||
-          x.halaqohId === selectedHalaqoh
+          !selectedHalaqoh || x.halaqohId === selectedHalaqoh
         )
         .sort((a, b) =>
           a.halaqoh.localeCompare(b.halaqoh, 'id') ||
@@ -11425,120 +11398,121 @@ function journal() {
     : [];
 
   return `
-    <div class="bg-white rounded-2xl p-5 shadow-sm">
+    <div class="w-full min-w-0 space-y-5">
 
-      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
+      <!-- HEADER DAN TOMBOL AKSI -->
+      <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex flex-col xl:flex-row xl:items-center
+                    xl:justify-between gap-4">
 
-        <div>
-          <b class="text-lg">
-            Jurnal Tahfidz Bulanan
-          </b>
+          <div class="min-w-0">
+            <h2 class="text-xl font-bold text-slate-800">
+              Jurnal Tahfidz Bulanan
+            </h2>
+            <p class="text-sm text-slate-500 mt-1">
+              Pilih halaqoh → murid. Tidak ada input nama manual.
+            </p>
+          </div>
 
-          <p class="text-xs text-slate-500">
-            Pilih halaqoh → murid. Tidak ada input nama manual.
-          </p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              onclick="openJournalImportExcel()"
+              class="bg-blue-600 hover:bg-blue-700 text-white
+                     px-3 py-2 rounded-lg text-sm font-medium">
+              📥 Impor Excel
+            </button>
+
+            <button
+              onclick="downloadJournalTemplate()"
+              class="bg-slate-600 hover:bg-slate-700 text-white
+                     px-3 py-2 rounded-lg text-sm font-medium">
+              📄 Unduh Template
+            </button>
+
+            <button
+              onclick="openJournal()"
+              class="bg-emerald-600 hover:bg-emerald-700 text-white
+                     px-3 py-2 rounded-lg text-sm font-medium">
+              + Isi Jurnal
+            </button>
+          </div>
         </div>
 
-       
-<div class="flex flex-wrap gap-2">
-  <button
-    onclick="openJournalImportExcel()"
-    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
-    📥 Impor Excel
-  </button>
+        <div class="mt-4 pt-4 border-t border-slate-100
+                    flex flex-col sm:flex-row sm:items-center gap-2">
+          <label for="journalMonthFilter"
+                 class="text-sm font-medium text-slate-700">
+            Filter Bulan
+          </label>
 
-  <button
-    onclick="downloadJournalTemplate()"
-    class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg">
-    📄 Unduh Template
-  </button>
+          <select
+            id="journalMonthFilter"
+            onchange="
+              window.selectedJournalMonth = this.value;
+              go('journal');
+            "
+            class="w-full sm:w-56 border border-slate-300
+                   rounded-lg px-3 py-2 text-sm bg-white">
 
-  <button
-    onclick="openJournal()"
-    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
-    + Isi Jurnal
-  </button>
-</div>
+            <option value=""
+              ${selectedMonth === '' ? 'selected' : ''}>
+              Semua Bulan
+            </option>
 
-
-      <!-- FILTER BULAN -->
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-5">
-
-        <label class="text-sm font-medium text-slate-700">
-          Filter Bulan
-        </label>
-
-        <select
-          onchange="
-            window.selectedJournalMonth = this.value;
-            go('journal');
-          "
-          class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
-
-          <option
-            value=""
-            ${selectedMonth === '' ? 'selected' : ''}>
-            Semua Bulan
-          </option>
-
-          ${
-            months.map(m => `
-              <option
-                value="${m}"
+            ${months.map(m => `
+              <option value="${m}"
                 ${selectedMonth === m ? 'selected' : ''}>
                 ${formatMonth(m)}
               </option>
-            `).join('')
-          }
-
-        </select>
-
-      </div>
+            `).join('')}
+          </select>
+        </div>
+      </section>
 
       ${
         current.role === 'koordinator' ? `
-          <!-- MONITORING KHUSUS KOORDINATOR -->
-          <div class="mb-6 rounded-xl border border-slate-200 p-4">
+          <!-- MONITORING GURU -->
+          <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm
+                          min-w-0">
 
-            <h3 class="font-bold text-slate-800 mb-3">
-              📋 Monitoring Input Jurnal Guru
-            </h3>
-
-            <label class="block text-sm font-medium text-slate-700 mb-4">
-              Filter Halaqoh
+            <div class="flex flex-col sm:flex-row
+                        sm:items-center sm:justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-lg font-bold text-slate-800">
+                  📋 Monitoring Input Jurnal Guru
+                </h3>
+                <p class="text-sm text-slate-500 mt-1">
+                  Periksa status pengisian setiap guru dan halaqoh.
+                </p>
+              </div>
 
               <select
+                aria-label="Filter halaqoh monitoring"
                 onchange="
                   window.selectedJournalHalaqoh = this.value;
                   go('journal');
                 "
-                class="mt-1 w-full sm:w-80 border border-slate-300 rounded-lg px-3 py-2 bg-white">
+                class="w-full sm:w-64 border border-slate-300
+                       rounded-lg px-3 py-2 text-sm bg-white">
 
-                <option value="">
-                  Semua Halaqoh
-                </option>
+                <option value="">Semua Halaqoh</option>
 
-                ${
-                  cache.halaqoh.map(h => `
-                    <option
-                      value="${h.id}"
-                      ${selectedHalaqoh === h.id ? 'selected' : ''}>
-                      ${esc(h.nama)}
-                    </option>
-                  `).join('')
-                }
-
+                ${cache.halaqoh.map(h => `
+                  <option value="${h.id}"
+                    ${selectedHalaqoh === h.id ? 'selected' : ''}>
+                    ${esc(h.nama)}
+                  </option>
+                `).join('')}
               </select>
-            </label>
+            </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-
+            <div class="overflow-x-auto rounded-lg border border-slate-200">
+              <table class="w-full min-w-[560px] text-sm">
                 <thead>
-                  <tr class="bg-slate-50">
-                    <th class="p-3 text-left">Halaqoh</th>
-                    <th class="p-3 text-left">Guru</th>
-                    <th class="p-3 text-left">Status Input</th>
+                  <tr class="bg-slate-50 text-slate-700">
+                    <th class="p-3 text-left font-semibold">Halaqoh</th>
+                    <th class="p-3 text-left font-semibold">Guru</th>
+                    <th class="p-3 text-left font-semibold">Status Input</th>
                   </tr>
                 </thead>
 
@@ -11546,158 +11520,131 @@ function journal() {
                   ${
                     monitoring.length
                       ? monitoring.map(x => `
-                        <tr class="border-t hover:bg-slate-50">
-
+                        <tr class="border-t border-slate-100
+                                   hover:bg-slate-50">
                           <td class="p-3 font-medium">
                             ${esc(x.halaqoh)}
                           </td>
-
+                          <td class="p-3">${esc(x.guru)}</td>
                           <td class="p-3">
-                            ${esc(x.guru)}
-                          </td>
-
-                          <td class="p-3">
-                            <span class="inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                              x.sudahInput
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-red-100 text-red-700'
-                            }">
-                              ${
+                            <span class="inline-flex items-center
+                              rounded-full px-3 py-1 text-xs font-semibold
+                              whitespace-nowrap ${
                                 x.sudahInput
-                                  ? 'Sudah Menginput'
-                                  : 'Belum Menginput'
-                              }
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-red-100 text-red-700'
+                              }">
+                              ${x.sudahInput
+                                ? 'Sudah Menginput'
+                                : 'Belum Menginput'}
                             </span>
                           </td>
-
                         </tr>
                       `).join('')
                       : `
                         <tr>
-                          <td colspan="3" class="p-5 text-center text-slate-500">
+                          <td colspan="3"
+                              class="p-6 text-center text-slate-500">
                             Belum ada penugasan guru ke halaqoh.
                           </td>
                         </tr>
                       `
                   }
                 </tbody>
-
               </table>
             </div>
 
             <p class="text-xs text-slate-500 mt-3">
-              Status Sudah Menginput berarti ditemukan minimal satu jurnal
-              dari guru pada halaqoh dan bulan yang dipilih.
+              Status “Sudah Menginput” berarti ditemukan minimal satu
+              jurnal dari guru pada halaqoh dan bulan yang dipilih.
             </p>
-
-          </div>
+          </section>
         ` : ''
       }
 
       <!-- TABEL JURNAL -->
-      <div class="overflow-x-auto">
+      <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm min-w-0">
+        <div class="mb-4">
+          <h3 class="text-lg font-bold text-slate-800">
+            Data Jurnal
+          </h3>
+          <p class="text-sm text-slate-500 mt-1">
+            ${filteredRows.length} data jurnal ditampilkan.
+          </p>
+        </div>
 
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto rounded-lg border border-slate-200">
+          <table class="w-full min-w-[850px] text-sm">
+            <thead>
+              <tr class="bg-slate-50 text-slate-700">
+                <th class="p-3 text-left">Bulan</th>
+                <th class="p-3 text-left">Murid</th>
+                <th class="p-3 text-left">Kelas</th>
+                <th class="p-3 text-left">Halaqoh</th>
+                <th class="p-3 text-left">Hafalan</th>
+                <th class="p-3 text-left">Catatan</th>
+                <th class="p-3 text-left">Aksi</th>
+              </tr>
+            </thead>
 
-          <thead>
-            <tr class="bg-slate-50">
-
-              <th class="p-3 text-left">Bulan</th>
-              <th class="p-3 text-left">Murid</th>
-              <th class="p-3 text-left">Kelas</th>
-              <th class="p-3 text-left">Halaqoh</th>
-              <th class="p-3 text-left">Hafalan</th>
-              <th class="p-3 text-left">Catatan</th>
-              <th class="p-3 text-left">Aksi</th>
-
-            </tr>
-          </thead>
-
-          <tbody>
-            ${
-              filteredRows.length
-                ? filteredRows.map(j => {
-                    const s = ss.find(
-                      x => x.id === j.student_id
-                    );
-
-                    const h = cache.halaqoh.find(
-                      x => x.id === j.halaqoh_id
-                    );
-
-                    const kelas =
-                      cache.classes.find(
+            <tbody>
+              ${
+                filteredRows.length
+                  ? filteredRows.map(j => {
+                      const s = ss.find(x => x.id === j.student_id);
+                      const h = cache.halaqoh.find(
+                        x => x.id === j.halaqoh_id
+                      );
+                      const kelas = cache.classes.find(
                         x => x.id === s?.class_id
                       )?.nama || '-';
 
-                    return `
-                      <tr class="border-t hover:bg-slate-50">
-
-                        <td class="p-3">
-                          ${esc(formatMonth(j.month_start))}
-                        </td>
-
-                        <td class="p-3">
-                          ${esc(s?.nama || '-')}
-                        </td>
-
-                        <td class="p-3">
-                          ${esc(kelas)}
-                        </td>
-
-                        <td class="p-3">
-                          ${esc(h?.nama || '-')}
-                        </td>
-
-                        <td class="p-3">
-                          ${esc(j.hafalan || '-')}
-                        </td>
-
-                        <td class="p-3">
-                          ${esc(j.catatan || '-')}
-                        </td>
-
-                        <td class="p-3 whitespace-nowrap">
-
-                          <button
-                            onclick="openJournal('${j.id}')"
-                            class="text-blue-600 hover:underline mr-3">
-                            ✏️ Edit
-                          </button>
-
-                          <button
-                            onclick="deleteJournal('${j.id}')"
-                            class="text-red-600 hover:underline">
-                            🗑️ Hapus
-                          </button>
-
-                        </td>
-
-                      </tr>
-                    `;
-                  }).join('')
-                : `
-                  <tr>
-                    <td colspan="7" class="p-6 text-center text-slate-500">
-                      ${
-                        selectedMonth
-                          ? `Belum ada jurnal untuk ${formatMonth(selectedMonth)}.`
-                          : 'Belum ada jurnal.'
-                      }
-                    </td>
-                  </tr>
-                `
-            }
-          </tbody>
-
-        </table>
-
-      </div>
-
+                      return `
+                        <tr class="border-t border-slate-100
+                                   hover:bg-slate-50">
+                          <td class="p-3 whitespace-nowrap">
+                            ${esc(formatMonth(j.month_start))}
+                          </td>
+                          <td class="p-3">${esc(s?.nama || '-')}</td>
+                          <td class="p-3">${esc(kelas)}</td>
+                          <td class="p-3">${esc(h?.nama || '-')}</td>
+                          <td class="p-3">${esc(j.hafalan || '-')}</td>
+                          <td class="p-3">${esc(j.catatan || '-')}</td>
+                          <td class="p-3 whitespace-nowrap">
+                            <button
+                              onclick="openJournal('${j.id}')"
+                              class="text-blue-600 hover:underline mr-3">
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onclick="deleteJournal('${j.id}')"
+                              class="text-red-600 hover:underline">
+                              🗑️ Hapus
+                            </button>
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')
+                  : `
+                    <tr>
+                      <td colspan="7"
+                          class="p-6 text-center text-slate-500">
+                        ${
+                          selectedMonth
+                            ? `Belum ada jurnal untuk ${formatMonth(selectedMonth)}.`
+                            : 'Belum ada jurnal.'
+                        }
+                      </td>
+                    </tr>
+                  `
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   `;
 }
-
 function downloadJournalTemplate() {
   if (typeof XLSX === 'undefined') {
     return toast('Fitur Excel belum tersedia. Periksa library XLSX.', 'err');
