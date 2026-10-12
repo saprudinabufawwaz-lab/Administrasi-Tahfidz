@@ -283,48 +283,70 @@ $('loginScreen').style.display='none';
   go('home');
   console.log('START 9 - go home selesai');
 }
-function buildNav(){
+
+function buildNav() {
   const isC = current.role === 'koordinator';
+  const isP = current.role === 'penguji';
+
+  // Akun penguji hanya melihat menu ujian.
+  if (isP) {
+    $('nav').innerHTML = `
+      <button
+        onclick="go('exam')"
+        class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+        🏅 Ujian Kenaikan Juz
+      </button>
+    `;
+    return;
+  }
 
   $('nav').innerHTML = `
-    <button onclick="go('home')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
-      🏠 Beranda
-    </button>
+    ${isC ? `
+      <button onclick="go('home')"
+        class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+        🏠 Beranda
+      </button>
+    ` : ''}
 
-    <button onclick="go('journal')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+    <button onclick="go('journal')"
+      class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
       📖 Jurnal Tahfidz Bulanan
     </button>
 
-    <button onclick="go('report')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+    <button onclick="go('report')"
+      class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
       📊 Rekap 3 Bulan
     </button>
 
-<button onclick="go('exam')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
-  🏅 Ujian Kenaikan Juz
-</button>
+    <button onclick="go('exam')"
+      class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+      🏅 Ujian Kenaikan Juz
+    </button>
 
-<button onclick="go('certificate')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
-  📜 Sertifikat Kenaikan Juz
-</button>
-<button
-  onclick="go('rapor')"
-  class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+    ${isC ? `
+      <button onclick="go('certificate')"
+        class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+        📜 Sertifikat Kenaikan Juz
+      </button>
 
-  📑 Rapor Tahfidz
+      <button onclick="go('rapor')"
+        class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+        📑 Rapor Tahfidz
+      </button>
 
-</button>
-
-${isC ? `
-      <button onclick="go('guru')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+      <button onclick="go('guru')"
+        class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
         👨‍🏫 Data Guru & Persetujuan
       </button>
 
-      <button onclick="go('settings')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+      <button onclick="go('settings')"
+        class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
         ⚙️ Peraturan & Pengaturan
       </button>
     ` : ''}
 
-    <button onclick="go('student')" class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+    <button onclick="go('student')"
+      class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
       👦 Data Murid
     </button>
   `;
@@ -332,84 +354,87 @@ ${isC ? `
 function toggleSidebar(){$('sidebar').classList.toggle('-translate-x-full')}
 let restoringHistory = false;
 
+
+let restoringHistory = false;
+
 function go(page, pushHistory = true) {
+  const role = current?.role;
+
+  if (!role) return;
+
+  // Daftar halaman yang boleh diakses masing-masing role.
+  const allowedPages = {
+    koordinator: [
+      'home', 'journal', 'report', 'exam',
+      'certificate', 'rapor', 'guru', 'settings', 'student'
+    ],
+    guru: [
+      'journal', 'report', 'exam', 'student'
+    ],
+    penguji: ['exam']
+  };
+
+  if (!allowedPages[role]?.includes(page)) {
+    toast('Akses menu ini tidak diizinkan.', 'err');
+
+    // Penguji selalu diarahkan ke menu ujian.
+    if (role === 'penguji') {
+      page = 'exam';
+    } else {
+      return;
+    }
+  }
+
   if (innerWidth < 1024) {
     $('sidebar').classList.add('-translate-x-full');
   }
 
-const map = {
-  home: ['Beranda', 'Ringkasan sistem tahfidz'],
-  journal: ['Jurnal Tahfidz Bulanan', 'Satu kali per bulan, berdasarkan halaqoh yang Anda ampu'],
-  report: ['Rekap Tahfidz 3 Bulan', 'Diisi guru kelas atau partner wali kelas'],
-  exam: ['Ujian Kenaikan Juz', 'Pengajuan dan verifikasi'],
-  certificate: ['Sertifikat Kenaikan Juz', 'Pengajuan dan penerbitan sertifikat'],
-    rapor: [
-  'Rapor Tahfidz',
-  'Penilaian semester dan detail hafalan per surat'
-],
-  guru: ['Data Guru & Persetujuan', 'Akun, status, kelas, dan halaqoh guru'],
-  settings: ['Peraturan & Pengaturan', 'Identitas lembaga, logo, tema, dan master data'],
-  student: ['Data Murid', 'Nama murid, kelas, dan halaqoh']
-
-};
-
-  if (!map[page]) return;
-
-  $('pageTitle').textContent = map[page][0];
-  $('pageSub').textContent = map[page][1];
-
- const fn = {
-  home: home,
-  journal: journal,
-  report: report,
-  exam: exam,
-  certificate: certificate,
-  rapor: rapor,
-  guru: guru,
-  settings: settingsPage,
-  student: student
-}[page];
-
-  $('content').innerHTML = fn();
-
-  if (page === 'journal') bindJournal();
-  if (page === 'report') bindReport();
-  if (page === 'exam') bindExam();
-  if (page === 'guru') bindGuru();
-  if (page === 'settings') bindSettings();
-  if (page === 'student') bindStudent();
-  if (page === 'rapor') bindRapor();
-
-  // Simpan halaman ke riwayat browser
-  if (pushHistory && !restoringHistory) {
-    history.pushState({ page }, '', '#' + page);
-  }
-}window.addEventListener('popstate', function(e) {
-  const page = e.state?.page || location.hash.replace('#', '') || 'home';
-
   const map = {
     home: ['Beranda', 'Ringkasan sistem tahfidz'],
-    journal: ['Jurnal Tahfidz Bulanan', 'Satu kali per bulan, berdasarkan halaqoh yang Anda ampu'],
-    report: ['Rekap Tahfidz 3 Bulan', 'Diisi guru kelas atau partner wali kelas'],
+    journal: [
+      'Jurnal Tahfidz Bulanan',
+      'Satu kali per bulan, berdasarkan halaqoh yang Anda ampu'
+    ],
+    report: [
+      'Rekap Tahfidz 3 Bulan',
+      'Diisi guru kelas atau partner wali kelas'
+    ],
     exam: ['Ujian Kenaikan Juz', 'Pengajuan dan verifikasi'],
-    guru: ['Data Guru & Persetujuan', 'Akun, status, kelas, dan halaqoh guru'],
-    settings: ['Peraturan & Pengaturan', 'Identitas lembaga, logo, tema, dan master data'],
-    student: ['Data Murid', 'Nama murid, kelas, dan halaqoh']
+    certificate: [
+      'Sertifikat Kenaikan Juz',
+      'Pengajuan dan penerbitan sertifikat'
+    ],
+    rapor: [
+      'Rapor Tahfidz',
+      'Penilaian semester dan detail hafalan per surat'
+    ],
+    guru: [
+      'Data Guru & Persetujuan',
+      'Akun, status, kelas, dan halaqoh guru'
+    ],
+    settings: [
+      'Peraturan & Pengaturan',
+      'Identitas lembaga, logo, tema, dan master data'
+    ],
+    student: [
+      'Data Murid',
+      'Nama murid, kelas, dan halaqoh'
+    ]
   };
 
   const fn = {
-    home: home,
-    journal: journal,
-    report: report,
-    exam: exam,
-    guru: guru,
+    home,
+    journal,
+    report,
+    exam,
+    certificate,
+    rapor,
+    guru,
     settings: settingsPage,
-    student: student
+    student
   };
 
   if (!map[page] || !fn[page]) return;
-
-  restoringHistory = true;
 
   $('pageTitle').textContent = map[page][0];
   $('pageSub').textContent = map[page][1];
@@ -421,7 +446,21 @@ const map = {
   if (page === 'guru') bindGuru();
   if (page === 'settings') bindSettings();
   if (page === 'student') bindStudent();
+  if (page === 'rapor') bindRapor();
 
+  if (pushHistory && !restoringHistory) {
+    history.pushState({ page }, '', '#' + page);
+  }
+}
+
+window.addEventListener('popstate', function(e) {
+  const page =
+    e.state?.page ||
+    location.hash.replace('#', '') ||
+    'home';
+
+  restoringHistory = true;
+  go(page, false);
   restoringHistory = false;
 });
 function home(){
