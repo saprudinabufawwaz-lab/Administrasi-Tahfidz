@@ -352,7 +352,6 @@ function buildNav() {
   `;
 }
 function toggleSidebar(){$('sidebar').classList.toggle('-translate-x-full')}
-let restoringHistory = false;
 
 
 let restoringHistory = false;
