@@ -363,15 +363,10 @@ function go(page, pushHistory = true) {
 
   // Daftar halaman yang boleh diakses masing-masing role.
   const allowedPages = {
-    koordinator: [
-      'home', 'journal', 'report', 'exam',
-      'certificate', 'rapor', 'guru', 'settings', 'student'
-    ],
-    guru: [
-      'journal', 'report', 'exam', 'student'
-    ],
-    penguji: ['exam']
-  };
+  koordinator: ['home','journal','report','exam','certificate','rapor','guru','settings','student'],
+  guru: ['home','journal','report','exam','student'],
+  penguji: ['exam']
+};
 
   if (!allowedPages[role]?.includes(page)) {
     toast('Akses menu ini tidak diizinkan.', 'err');
