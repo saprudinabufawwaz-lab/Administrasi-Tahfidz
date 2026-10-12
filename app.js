@@ -11439,13 +11439,27 @@ function journal() {
           </p>
         </div>
 
-        <button
-          onclick="openJournal()"
-          class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
-          + Isi Jurnal
-        </button>
+       
+<div class="flex flex-wrap gap-2">
+  <button
+    onclick="openJournalImportExcel()"
+    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+    📥 Impor Excel
+  </button>
 
-      </div>
+  <button
+    onclick="downloadJournalTemplate()"
+    class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg">
+    📄 Unduh Template
+  </button>
+
+  <button
+    onclick="openJournal()"
+    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
+    + Isi Jurnal
+  </button>
+</div>
+
 
       <!-- FILTER BULAN -->
       <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-5">
@@ -11682,6 +11696,320 @@ function journal() {
 
     </div>
   `;
+}
+
+function downloadJournalTemplate() {
+  if (typeof XLSX === 'undefined') {
+    return toast('Fitur Excel belum tersedia. Periksa library XLSX.', 'err');
+  }
+
+  const data = [
+    ['Bulan', 'Halaqoh', 'NIS/NISN', 'Nama Murid', 'Hafalan', 'Catatan'],
+    ['2026-10', 'Reguler 1', '123456', 'Nama Murid', 'An-Naba ayat 1-10', 'Lancar']
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [
+    { wch: 12 },
+    { wch: 22 },
+    { wch: 18 },
+    { wch: 28 },
+    { wch: 30 },
+    { wch: 35 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Jurnal');
+  XLSX.writeFile(wb, 'Template_Jurnal_Tahfidz.xlsx');
+}
+
+function openJournalImportExcel() {
+  if (typeof XLSX === 'undefined') {
+    return toast('Library Excel XLSX belum tersedia.', 'err');
+  }
+
+  $('modalBox').innerHTML = `
+    <h3 class="font-bold text-lg mb-2">
+      📥 Impor Jurnal Tahfidz dari Excel
+    </h3>
+
+    <p class="text-sm text-slate-600 mb-4">
+      Gunakan template yang tersedia. Pastikan nama murid,
+      NIS/NISN, halaqoh, bulan, dan hafalan sesuai dengan data aplikasi.
+    </p>
+
+    <div class="bg-slate-50 border rounded-xl p-3 mb-4 text-sm">
+      <b>Kolom wajib:</b>
+      <p class="mt-1">
+        Bulan, Halaqoh, NIS/NISN, Nama Murid, Hafalan
+      </p>
+      <p class="text-xs text-slate-500 mt-2">
+        Format bulan: YYYY-MM, misalnya 2026-10.
+        Kolom Catatan boleh dikosongkan.
+      </p>
+    </div>
+
+    <label class="block text-sm font-medium">
+      Pilih file Excel
+      <input
+        id="journalExcelFile"
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        class="mt-1 w-full border rounded-lg p-2 bg-white"
+      >
+    </label>
+
+    <div class="flex justify-end gap-2 mt-5">
+      <button
+        type="button"
+        onclick="closeModal()"
+        class="border px-4 py-2 rounded-lg">
+        Batal
+      </button>
+
+      <button
+        type="button"
+        onclick="importJournalExcel()"
+        class="bg-blue-600 text-white px-4 py-2 rounded-lg">
+        Mulai Impor
+      </button>
+    </div>
+
+    <div id="journalImportResult" class="text-sm mt-4"></div>
+  `;
+
+  openModal();
+}
+
+async function importJournalExcel() {
+  const file = $('journalExcelFile')?.files?.[0];
+
+  if (!file) {
+    return toast('Pilih file Excel terlebih dahulu.', 'err');
+  }
+
+  if (typeof XLSX === 'undefined') {
+    return toast('Library Excel XLSX belum tersedia.', 'err');
+  }
+
+  const resultBox = $('journalImportResult');
+
+  resultBox.innerHTML = `
+    <p class="text-blue-700">Sedang membaca file Excel...</p>
+  `;
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    const data = XLSX.utils.sheet_to_json(sheet, {
+      defval: '',
+      raw: false
+    });
+
+    if (!data.length) {
+      resultBox.innerHTML =
+        '<p class="text-red-600">File Excel tidak berisi data.</p>';
+      return;
+    }
+
+    const normalize = value =>
+      String(value ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+
+    const getColumn = (row, names) => {
+      const keys = Object.keys(row);
+      const key = keys.find(k =>
+        names.includes(normalize(k))
+      );
+      return key ? String(row[key] ?? '').trim() : '';
+    };
+
+    const imported = [];
+    const errors = [];
+    const seen = new Set();
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const nomorBaris = i + 2;
+
+      const bulan = getColumn(row, ['bulan', 'month']);
+      const halaqohNama = getColumn(row, ['halaqoh', 'haloqoh']);
+      const nis = getColumn(row, [
+        'nis/nisn', 'nis', 'nisn', 'nomor induk'
+      ]);
+      const nama = getColumn(row, ['nama murid', 'nama siswa', 'nama']);
+      const hafalan = getColumn(row, ['hafalan', 'capaian hafalan']);
+      const catatan = getColumn(row, ['catatan', 'keterangan']);
+
+      if (!bulan || !halaqohNama || !nama || !hafalan) {
+        errors.push(`Baris ${nomorBaris}: ada kolom wajib yang kosong.`);
+        continue;
+      }
+
+      const monthMatch = bulan.match(/^(\d{4})-(\d{1,2})$/);
+      if (!monthMatch) {
+        errors.push(`Baris ${nomorBaris}: format bulan harus YYYY-MM.`);
+        continue;
+      }
+
+      const tahun = Number(monthMatch[1]);
+      const nomorBulan = Number(monthMatch[2]);
+
+      if (nomorBulan < 1 || nomorBulan > 12) {
+        errors.push(`Baris ${nomorBaris}: bulan tidak valid.`);
+        continue;
+      }
+
+      const month_start =
+        `${tahun}-${String(nomorBulan).padStart(2, '0')}-01`;
+
+      const halaqoh = cache.halaqoh.find(
+        h => normalize(h.nama) === normalize(halaqohNama)
+      );
+
+      if (!halaqoh) {
+        errors.push(
+          `Baris ${nomorBaris}: halaqoh "${halaqohNama}" tidak ditemukan.`
+        );
+        continue;
+      }
+
+      // Guru hanya boleh mengimpor untuk halaqoh yang ditugaskan kepadanya.
+      if (current.role !== 'koordinator') {
+        const ditugaskan = cache.teacherHalaqoh.some(t =>
+          t.teacher_id === current.id &&
+          t.halaqoh_id === halaqoh.id
+        );
+
+        if (!ditugaskan) {
+          errors.push(
+            `Baris ${nomorBaris}: Anda tidak ditugaskan pada halaqoh "${halaqohNama}".`
+          );
+          continue;
+        }
+      }
+
+      const kandidatMurid = cache.students.filter(s => {
+        if (!s.aktif || s.halaqoh_id !== halaqoh.id) return false;
+
+        const cocokNama = normalize(s.nama) === normalize(nama);
+        const nisMurid = normalize(s.nis || s.nisn || '');
+        const cocokNis = nis
+          ? nisMurid === normalize(nis)
+          : true;
+
+        return cocokNama && cocokNis;
+      });
+
+      if (kandidatMurid.length !== 1) {
+        errors.push(
+          `Baris ${nomorBaris}: murid "${nama}" tidak ditemukan secara unik pada halaqoh "${halaqohNama}". Periksa nama dan NIS/NISN.`
+        );
+        continue;
+      }
+
+      const murid = kandidatMurid[0];
+      const key = `${murid.id}|${month_start}`;
+
+      if (seen.has(key)) {
+        errors.push(
+          `Baris ${nomorBaris}: murid "${nama}" tercantum lebih dari sekali pada bulan yang sama.`
+        );
+        continue;
+      }
+
+      seen.add(key);
+
+      imported.push({
+        student_id: murid.id,
+        month_start,
+        halaqoh_id: halaqoh.id,
+        teacher_id: current.id,
+        hafalan,
+        catatan
+      });
+    }
+
+    if (!imported.length) {
+      resultBox.innerHTML = `
+        <p class="text-red-600">
+          Tidak ada data valid untuk diimpor.
+        </p>
+        ${errors.length
+          ? `<ul class="mt-2 list-disc pl-5">${errors.map(e =>
+              `<li>${esc(e)}</li>`
+            ).join('')}</ul>`
+          : ''}
+      `;
+      return;
+    }
+
+    resultBox.innerHTML = `
+      <p class="text-slate-700">
+        Data valid: <b>${imported.length}</b><br>
+        Baris bermasalah: <b>${errors.length}</b>
+      </p>
+      <p class="text-xs text-slate-500 mt-1">
+        Menyimpan data...
+      </p>
+    `;
+
+    const { error } = await sb
+      .from('monthly_journals')
+      .upsert(imported, {
+        onConflict: 'student_id,month_start'
+      });
+
+    if (error) {
+      console.error(error);
+      resultBox.innerHTML = `
+        <p class="text-red-600">
+          Gagal menyimpan data: ${esc(error.message)}
+        </p>
+      `;
+      return;
+    }
+
+    await loadAll();
+
+    resultBox.innerHTML = `
+      <p class="font-semibold text-emerald-700">
+        Impor selesai. ${imported.length} jurnal berhasil diproses.
+      </p>
+      <p class="text-sm mt-1">
+        ${errors.length} baris dilewati karena tidak valid.
+      </p>
+      ${
+        errors.length
+          ? `<details class="mt-3">
+              <summary class="cursor-pointer font-medium">
+                Lihat baris yang dilewati
+              </summary>
+              <ul class="list-disc pl-5 mt-2 space-y-1">
+                ${errors.map(e => `<li>${esc(e)}</li>`).join('')}
+              </ul>
+            </details>`
+          : ''
+      }
+      <button
+        type="button"
+        onclick="closeModal(); go('journal');"
+        class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg">
+        Selesai
+      </button>
+    `;
+  } catch (err) {
+    console.error(err);
+    resultBox.innerHTML = `
+      <p class="text-red-600">
+        File gagal dibaca: ${esc(err.message || 'Kesalahan tidak diketahui')}
+      </p>
+    `;
+  }
 }
 
 function openJournal(id=''){
