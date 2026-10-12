@@ -302,11 +302,11 @@ function buildNav() {
 
   $('nav').innerHTML = `
     ${isC ? `
-      
 <button onclick="go('home')"
   class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
   🏠 Beranda
 </button>
+` : ''}
 
 
     <button onclick="go('journal')"
