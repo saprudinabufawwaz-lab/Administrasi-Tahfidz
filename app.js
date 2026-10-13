@@ -239,7 +239,8 @@ const tables = {
     );
   }
 }
-
+}
+  }
 async function start(user){
   console.log('START 1 - mulai login', user);
 
