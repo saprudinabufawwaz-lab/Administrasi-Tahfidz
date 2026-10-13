@@ -16168,571 +16168,379 @@ async function deleteExam(id){
 
   go('exam');
 }
-function guru(){
 
+function guru() {
   const gs = cache.profiles.filter(
-    p => p.role === 'guru'
+    p => ['guru', 'penguji'].includes(p.role)
   );
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
 
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
-
         <div>
-          <b class="text-lg">Data Guru</b>
-
+          <b class="text-lg">Data Guru & Penguji</b>
           <p class="text-xs text-slate-500">
-            Kelola status, halaqoh, dan kelas penugasan guru.
+            Kelola peran, status, NIPY, halaqoh, dan kelas penugasan.
           </p>
         </div>
 
         <span class="text-xs text-slate-500">
-          Pendaftaran masuk otomatis dari formulir guru
+          Pendaftaran masuk otomatis dari formulir
         </span>
-
       </div>
 
-
       <div class="overflow-x-auto">
-
         <table class="w-full text-sm">
-
           <thead>
-
             <tr class="bg-slate-50">
-
               <th class="p-3 text-left">Nama</th>
-<th class="p-3 text-left">Email</th>
-<th class="p-3 text-left">NIPY</th>
-<th class="p-3 text-left">Status</th>
+              <th class="p-3 text-left">Email</th>
+              <th class="p-3 text-left">Peran</th>
+              <th class="p-3 text-left">NIPY</th>
+              <th class="p-3 text-left">Status</th>
               <th class="p-3 text-left">Halaqoh</th>
               <th class="p-3 text-left">Kelas</th>
               <th class="p-3 text-left">Aksi</th>
-
             </tr>
-
           </thead>
 
-
           <tbody>
-
             ${
               gs.length
-              ?
-
-              gs.map(g => {
-
-                const hs =
-                  cache.teacherHalaqoh
-                    .filter(
-                      x => x.teacher_id === g.id
-                    )
-                    .map(
-                      x =>
+                ? gs.map(g => {
+                    const hs = cache.teacherHalaqoh
+                      .filter(x => x.teacher_id === g.id)
+                      .map(x =>
                         cache.halaqoh.find(
                           h => h.id === x.halaqoh_id
                         )?.nama
-                    )
-                    .filter(Boolean)
-                    .join(', ');
+                      )
+                      .filter(Boolean)
+                      .join(', ');
 
-
-                const cs =
-                  cache.teacherClass
-                    .filter(
-                      x => x.teacher_id === g.id
-                    )
-                    .map(
-                      x =>
+                    const cs = cache.teacherClass
+                      .filter(x => x.teacher_id === g.id)
+                      .map(x =>
                         cache.classes.find(
                           c => c.id === x.class_id
                         )?.nama
-                    )
-                    .filter(Boolean)
-                    .join(', ');
+                      )
+                      .filter(Boolean)
+                      .join(', ');
 
+                    return `
+                      <tr class="border-t hover:bg-slate-50">
+                        <td class="p-3">
+                          ${esc(g.nama || '-')}
+                        </td>
 
-                return `
+                        <td class="p-3">
+                          ${esc(g.email || '-')}
+                        </td>
 
-                  <tr class="border-t hover:bg-slate-50">
+                        <td class="p-3">
+                          ${
+                            g.role === 'penguji'
+                              ? '<span class="text-purple-700 font-medium">Penguji</span>'
+                              : '<span class="text-blue-700 font-medium">Guru</span>'
+                          }
+                        </td>
 
-                    <td class="p-3">
-                      ${esc(g.nama || '-')}
+                        <td class="p-3">
+                          ${esc(g.nipy || '-')}
+                        </td>
+
+                        <td class="p-3">
+                          ${
+                            g.status === 'approved'
+                              ? '<span class="text-emerald-600 font-medium">Approved</span>'
+                              : g.status === 'rejected'
+                                ? '<span class="text-red-600 font-medium">Rejected</span>'
+                                : '<span class="text-amber-600 font-medium">Pending</span>'
+                          }
+                        </td>
+
+                        <td class="p-3">
+                          ${esc(
+                            hs ||
+                            g.requested_halaqoh ||
+                            '-'
+                          )}
+                        </td>
+
+                        <td class="p-3">
+                          ${esc(cs || '-')}
+                        </td>
+
+                        <td class="p-3 whitespace-nowrap">
+                          <button
+                            onclick="editGuru('${g.id}')"
+                            class="text-blue-600 hover:underline mr-3">
+                            ✏️ Edit
+                          </button>
+
+                          <button
+                            onclick="deleteGuru('${g.id}')"
+                            class="text-red-600 hover:underline">
+                            🗑️ Hapus
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')
+                : `
+                  <tr>
+                    <td
+                      colspan="8"
+                      class="p-6 text-center text-slate-500">
+                      Belum ada data guru atau penguji.
                     </td>
-
-                    <td class="p-3">
-                      ${esc(g.email || '-')}
-                    </td>
-
-                    <td class="p-3">
-  ${esc(g.nipy || '-')}
-</td>
-                    <td class="p-3">
-
-                      ${
-                        g.status === 'approved'
-                        ?
-                        '<span class="text-emerald-600 font-medium">Approved</span>'
-
-                        :
-
-                        g.status === 'rejected'
-                        ?
-                        '<span class="text-red-600 font-medium">Rejected</span>'
-
-                        :
-                        '<span class="text-amber-600 font-medium">Pending</span>'
-                      }
-
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(
-                        hs ||
-                        g.requested_halaqoh ||
-                        '-'
-                      )}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(cs || '-')}
-                    </td>
-
-                    <td class="p-3 whitespace-nowrap">
-
-                      <button
-                        onclick="editGuru('${g.id}')"
-                        class="text-blue-600 hover:underline mr-3">
-
-                        ✏️ Edit
-
-                      </button>
-
-                      <button
-                        onclick="deleteGuru('${g.id}')"
-                        class="text-red-600 hover:underline">
-
-                        🗑️ Hapus
-
-                      </button>
-
-                    </td>
-
                   </tr>
-
-                `;
-
-              }).join('')
-
-              :
-
-              `
-
-                <tr>
-
-                  <td
-                    colspan="7"
-                    class="p-6 text-center text-slate-500">
-
-                    Belum ada data guru.
-
-                  </td>
-
-                </tr>
-
-              `
+                `
             }
-
           </tbody>
-
         </table>
-
       </div>
-
     </div>
   `;
 }
 
+function editGuru(id) {
+  const g = cache.profiles.find(p => p.id === id);
 
-function editGuru(id){
-
-  const g =
-    cache.profiles.find(
-      p => p.id === id
-    );
-
-
-  if(!g){
-
-    return toast(
-      'Data guru tidak ditemukan',
-      'err'
-    );
-
+  if (!g) {
+    return toast('Data guru/penguji tidak ditemukan', 'err');
   }
 
+  const hs = cache.halaqoh;
+  const cs = cache.classes;
 
-  const hs =
-    cache.halaqoh;
+  const th = cache.teacherHalaqoh
+    .filter(x => x.teacher_id === id)
+    .map(x => x.halaqoh_id);
 
-
-  const cs =
-    cache.classes;
-
-
-  const th =
-    cache.teacherHalaqoh
-      .filter(
-        x => x.teacher_id === id
-      )
-      .map(
-        x => x.halaqoh_id
-      );
-
-
-  const tc =
-    cache.teacherClass
-      .filter(
-        x => x.teacher_id === id
-      )
-      .map(
-        x => x.class_id
-      );
-
+  const tc = cache.teacherClass
+    .filter(x => x.teacher_id === id)
+    .map(x => x.class_id);
 
   $('modalBox').innerHTML = `
-
     <h3 class="font-bold text-lg mb-4">
-
-      Kelola Guru:
-      ${esc(g.nama)}
-
+      Kelola Akun: ${esc(g.nama || '-')}
     </h3>
-
 
     <div class="space-y-4">
 
-
       <label class="block text-sm font-medium">
-
-        Nama Guru
-
+        Nama
         <input
           value="${esc(g.nama || '')}"
           disabled
           class="mt-1 w-full p-2.5 border rounded-lg bg-slate-50">
-
       </label>
 
-
       <label class="block text-sm font-medium">
-
         Email
-
         <input
           value="${esc(g.email || '')}"
           disabled
           class="mt-1 w-full p-2.5 border rounded-lg bg-slate-50">
-
       </label>
-<label class="block text-sm font-medium">
-
-  NIPY
-
-  <input
-    id="gnipy"
-    type="text"
-    value="${esc(g.nipy || '')}"
-    placeholder="Masukkan NIPY guru"
-    autocomplete="off"
-    class="mt-1 w-full p-2.5 border rounded-lg">
-
-  <p class="mt-1 text-xs text-slate-500">
-    NIPY akan digunakan otomatis pada Rapor Tahfidz.
-  </p>
-
-</label>
 
       <label class="block text-sm font-medium">
+        Peran Akun
+        <select
+          id="grole"
+          class="mt-1 w-full p-2.5 border rounded-lg">
+          <option value="guru">Guru</option>
+          <option value="penguji">Penguji</option>
+        </select>
+        <p class="mt-1 text-xs text-slate-500">
+          Penguji hanya ditujukan untuk akses menu Ujian Kenaikan Juz.
+        </p>
+      </label>
 
+      <label class="block text-sm font-medium">
+        NIPY
+        <input
+          id="gnipy"
+          type="text"
+          value="${esc(g.nipy || '')}"
+          placeholder="Masukkan NIPY guru"
+          autocomplete="off"
+          class="mt-1 w-full p-2.5 border rounded-lg">
+
+        <p class="mt-1 text-xs text-slate-500">
+          NIPY digunakan pada Rapor Tahfidz.
+        </p>
+      </label>
+
+      <label class="block text-sm font-medium">
         Status Akun
-
         <select
           id="gs"
           class="mt-1 w-full p-2.5 border rounded-lg">
-
-          <option value="pending">
-            Pending
-          </option>
-
-          <option value="approved">
-            Approved
-          </option>
-
-          <option value="rejected">
-            Rejected
-          </option>
-
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
         </select>
-
       </label>
 
-
       <div>
-
-        <b class="text-sm">
-          Halaqoh
-        </b>
-
-        <div
-          class="grid md:grid-cols-2 gap-2 mt-2">
-
+        <b class="text-sm">Halaqoh</b>
+        <div class="grid md:grid-cols-2 gap-2 mt-2">
           ${
             hs.map(h => `
-
-              <label
-                class="p-2 bg-slate-50 rounded cursor-pointer">
-
+              <label class="p-2 bg-slate-50 rounded cursor-pointer">
                 <input
                   type="checkbox"
                   class="gh"
                   value="${h.id}"
                   ${th.includes(h.id) ? 'checked' : ''}>
-
                 ${esc(h.nama)}
-
               </label>
-
             `).join('')
           }
-
         </div>
-
       </div>
 
-
       <div>
-
-        <b class="text-sm">
-          Kelas / Partner Wali
-        </b>
-
-        <div
-          class="grid md:grid-cols-2 gap-2 mt-2">
-
+        <b class="text-sm">Kelas / Partner Wali</b>
+        <div class="grid md:grid-cols-2 gap-2 mt-2">
           ${
             cs.map(c => `
-
-              <label
-                class="p-2 bg-slate-50 rounded cursor-pointer">
-
+              <label class="p-2 bg-slate-50 rounded cursor-pointer">
                 <input
                   type="checkbox"
                   class="gc"
                   value="${c.id}"
                   ${tc.includes(c.id) ? 'checked' : ''}>
-
                 ${esc(c.nama)}
-
               </label>
-
             `).join('')
           }
-
         </div>
-
       </div>
 
-
       <div class="flex justify-end gap-2 pt-2">
-
         <button
           type="button"
           onclick="closeModal()"
           class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg">
-
           Batal
-
         </button>
-
 
         <button
           type="button"
           onclick="saveGuru('${id}')"
           class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
-
           Simpan Perubahan
-
         </button>
-
       </div>
-
     </div>
-
   `;
 
+  $('grole').value =
+    ['guru', 'penguji'].includes(g.role)
+      ? g.role
+      : 'guru';
 
-  $('gs').value =
-    g.status || 'pending';
-
+  $('gs').value = g.status || 'pending';
 
   openModal();
 }
 
 
-async function saveGuru(id){
 
-  const status =
-    $('gs').value;
+async function saveGuru(id) {
+  const status = $('gs').value;
+  const role = $('grole').value;
+  const nipy = $('gnipy').value.trim();
 
-  const nipy =
-    $('gnipy').value.trim();
+  if (!['guru', 'penguji'].includes(role)) {
+    return toast('Peran akun tidak valid', 'err');
+  }
 
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    return toast('Status akun tidak valid', 'err');
+  }
 
-  const checkedHalaqoh =
-    [
-      ...document.querySelectorAll('.gh:checked')
-    ]
-    .map(
-      x => ({
-        teacher_id: id,
-        halaqoh_id: x.value
-      })
-    );
+  const checkedHalaqoh = [
+    ...document.querySelectorAll('.gh:checked')
+  ].map(x => ({
+    teacher_id: id,
+    halaqoh_id: x.value
+  }));
 
+  const checkedClass = [
+    ...document.querySelectorAll('.gc:checked')
+  ].map(x => ({
+    teacher_id: id,
+    class_id: x.value
+  }));
 
-  const checkedClass =
-    [
-      ...document.querySelectorAll('.gc:checked')
-    ]
-    .map(
-      x => ({
-        teacher_id: id,
-        class_id: x.value
-      })
-    );
+  // Simpan peran, status, dan NIPY.
+  const r = await sb
+    .from('profiles')
+    .update({
+      role,
+      status,
+      nipy
+    })
+    .eq('id', id);
 
-  // Update status dan NIPY guru
-
-  const r =
-    await sb
-      .from('profiles')
-      .update({
-        status,
-        nipy
-      })
-      .eq('id',id);
-
-
-  if(r.error){
-
+  if (r.error) {
     console.error(r.error);
-
-    return toast(
-      r.error.message,
-      'err'
-    );
-
+    return toast(r.error.message, 'err');
   }
 
+  // Hapus penugasan halaqoh lama.
+  const rh = await sb
+    .from('teacher_halaqoh')
+    .delete()
+    .eq('teacher_id', id);
 
-  // Hapus penugasan lama
-
-  const rh =
-    await sb
-      .from('teacher_halaqoh')
-      .delete()
-      .eq('teacher_id',id);
-
-
-  if(rh.error){
-
+  if (rh.error) {
     console.error(rh.error);
-
-    return toast(
-      rh.error.message,
-      'err'
-    );
-
+    return toast(rh.error.message, 'err');
   }
 
+  // Hapus penugasan kelas lama.
+  const rc = await sb
+    .from('teacher_class')
+    .delete()
+    .eq('teacher_id', id);
 
-  const rc =
-    await sb
-      .from('teacher_class')
-      .delete()
-      .eq('teacher_id',id);
-
-
-  if(rc.error){
-
+  if (rc.error) {
     console.error(rc.error);
-
-    return toast(
-      rc.error.message,
-      'err'
-    );
-
+    return toast(rc.error.message, 'err');
   }
 
+  // Simpan penugasan halaqoh baru.
+  if (checkedHalaqoh.length) {
+    const ih = await sb
+      .from('teacher_halaqoh')
+      .insert(checkedHalaqoh);
 
-  // Simpan penugasan halaqoh baru
-
-  if(checkedHalaqoh.length){
-
-    const ih =
-      await sb
-        .from('teacher_halaqoh')
-        .insert(
-          checkedHalaqoh
-        );
-
-
-    if(ih.error){
-
+    if (ih.error) {
       console.error(ih.error);
-
-      return toast(
-        ih.error.message,
-        'err'
-      );
-
+      return toast(ih.error.message, 'err');
     }
-
   }
 
+  // Simpan penugasan kelas baru.
+  if (checkedClass.length) {
+    const ic = await sb
+      .from('teacher_class')
+      .insert(checkedClass);
 
-  // Simpan penugasan kelas baru
-
-  if(checkedClass.length){
-
-    const ic =
-      await sb
-        .from('teacher_class')
-        .insert(
-          checkedClass
-        );
-
-
-    if(ic.error){
-
+    if (ic.error) {
       console.error(ic.error);
-
-      return toast(
-        ic.error.message,
-        'err'
-      );
-
+      return toast(ic.error.message, 'err');
     }
-
   }
 
-
-  toast(
-    'Data guru berhasil diperbarui'
-  );
-
+  toast('Data akun berhasil diperbarui');
 
   closeModal();
 
