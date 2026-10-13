@@ -224,14 +224,22 @@ const tables = {
       .from(table)
       .select('*');
 
-    if(error){
-      console.warn('Gagal memuat', table, error);
-      cache[key] = [];
-    }else{
-      cache[key] = data || [];
-    }
+   if(error){
+  console.warn('Gagal memuat', table, error);
+  cache[key] = [];
+}else{
+  cache[key] = data || [];
+
+  if(table === 'exam_requests'){
+    console.log(
+      '[DEBUG UJIAN]',
+      'Role:', current?.role,
+      'Jumlah:', cache[key].length,
+      'Data:', cache[key]
+    );
   }
 }
+
 async function start(user){
   console.log('START 1 - mulai login', user);
 
