@@ -13534,334 +13534,184 @@ async function deleteReport(id){
 
   go('report');
 }
-function exam(){
 
-  const rows =
-    cache.exams.filter(
-      x =>
-        current.role === 'koordinator' ||
-        x.teacher_id === current.id
-    );
+function exam() {
+  const isC = current.role === 'koordinator';
+  const isP = current.role === 'penguji';
+  const canVerify = isC || isP;
+
+  const rows = cache.exams.filter(x =>
+    isC || isP || x.teacher_id === current.id
+  );
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
-
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
-
         <div>
-
-          <b class="text-lg">
-            Ujian Kenaikan Juz
-          </b>
-
+          <b class="text-lg">Ujian Kenaikan Juz</b>
           <p class="text-xs text-slate-500">
             Pengajuan, verifikasi, dan hasil ujian kenaikan juz.
           </p>
-
         </div>
 
-
-        <button
-          onclick="openExam()"
-          class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
-
-          + Pengajuan
-
-        </button>
-
+        ${
+          !isP
+            ? `<button
+                onclick="openExam()"
+                class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
+                + Pengajuan
+              </button>`
+            : ''
+        }
       </div>
-
 
       <div class="overflow-x-auto">
-
         <table class="w-full text-sm">
-
           <thead>
-
             <tr class="bg-slate-50">
-
-              <th class="p-3 text-left">
-                Murid
-              </th>
-
-              <th class="p-3 text-left">
-                Halaqoh
-              </th>
-
-              <th class="p-3 text-left">
-                Juz
-              </th>
-
-
+              <th class="p-3 text-left">Murid</th>
+              <th class="p-3 text-left">Halaqoh</th>
+              <th class="p-3 text-left">Juz</th>
               ${
-                current.role === 'koordinator'
-                ?
-                `
-                  <th class="p-3 text-left">
-                    Guru Pengaju
-                  </th>
-                `
-                :
-                ''
+                canVerify
+                  ? '<th class="p-3 text-left">Guru Pengaju</th>'
+                  : ''
               }
-
-
-              <th class="p-3 text-left">
-                Tanggal
-              </th>
-
-              <th class="p-3 text-left">
-                Status
-              </th>
-
-              <th class="p-3 text-left">
-                Predikat
-              </th>
-
-              <th class="p-3 text-left">
-                Aksi
-              </th>
-
+              <th class="p-3 text-left">Tanggal</th>
+              <th class="p-3 text-left">Status</th>
+              <th class="p-3 text-left">Predikat</th>
+              <th class="p-3 text-left">Aksi</th>
             </tr>
-
           </thead>
 
-
           <tbody>
-
             ${
               rows.length
+                ? rows.map(x => {
+                    const s = cache.students.find(
+                      a => a.id === x.student_id
+                    );
 
-              ?
+                    const h = cache.halaqoh.find(
+                      a => a.id === x.halaqoh_id
+                    );
 
-              rows.map(x => {
+                    const teacher = cache.profiles.find(
+                      a => a.id === x.teacher_id
+                    );
 
-                const s =
-                  cache.students.find(
-                    a =>
-                      a.id === x.student_id
-                  );
+                    const eligible =
+                      x.status === 'Lulus' &&
+                      [
+                        "Mumtaz Murtafi'",
+                        'Mumtaz',
+                        'Jayyid Jiddan'
+                      ].includes(x.predikat);
 
+                    const alreadyRequested =
+                      Array.isArray(cache.certificates) &&
+                      cache.certificates.some(
+                        c => c.exam_request_id === x.id
+                      );
 
-                const h =
-                  cache.halaqoh.find(
-                    a =>
-                      a.id === x.halaqoh_id
-                  );
-
-
-                /*
-                 * Cari guru yang mengajukan
-                 * berdasarkan teacher_id
-                 */
-                const teacher =
-                  cache.profiles.find(
-                    a =>
-                      a.id === x.teacher_id
-                  );
-
-
-                const eligible =
-                  x.status === 'Lulus' &&
-                  (
-                    x.predikat === 'Mumtaz' ||
-                    x.predikat === 'Jayyid Jiddan'
-                  );
-
-
-                const alreadyRequested =
-                  Array.isArray(cache.certificates) &&
-                  cache.certificates.some(
-                    c =>
-                      c.exam_request_id === x.id
-                  );
-
-
-                return `
-
-                  <tr class="border-t hover:bg-slate-50">
-
-                    <td class="p-3">
-                      ${esc(s?.nama || '-')}
-                    </td>
-
-
-                    <td class="p-3">
-                      ${esc(h?.nama || '-')}
-                    </td>
-
-
-                    <td class="p-3">
-                      ${esc(x.juz || '-')}
-                    </td>
-
-
-                    ${
-                      current.role === 'koordinator'
-                      ?
-                      `
+                    return `
+                      <tr class="border-t hover:bg-slate-50">
                         <td class="p-3">
-                          ${esc(teacher?.nama || '-')}
+                          ${esc(s?.nama || '-')}
                         </td>
-                      `
-                      :
-                      ''
-                    }
 
+                        <td class="p-3">
+                          ${esc(h?.nama || '-')}
+                        </td>
 
-                    <td class="p-3">
-                      ${esc(x.tanggal || '-')}
+                        <td class="p-3">
+                          ${esc(x.juz || '-')}
+                        </td>
+
+                        ${
+                          canVerify
+                            ? `<td class="p-3">
+                                ${esc(teacher?.nama || '-')}
+                              </td>`
+                            : ''
+                        }
+
+                        <td class="p-3">
+                          ${esc(x.tanggal || '-')}
+                        </td>
+
+                        <td class="p-3">
+                          ${
+                            x.status === 'Lulus'
+                              ? '<span class="text-emerald-600 font-medium">Lulus</span>'
+                              : x.status === 'Tidak Lulus'
+                                ? '<span class="text-red-600 font-medium">Tidak Lulus</span>'
+                                : '<span class="text-amber-600 font-medium">Menunggu Verifikasi</span>'
+                          }
+                        </td>
+
+                        <td class="p-3">
+                          ${esc(x.predikat || '-')}
+                        </td>
+
+                        <td class="p-3 whitespace-nowrap">
+                          ${
+                            canVerify
+                              ? `<button
+                                  onclick="verifyExam('${x.id}')"
+                                  class="text-emerald-700 hover:underline mr-3">
+                                  ✏️ ${x.status === 'Menunggu Verifikasi'
+                                    ? 'Verifikasi'
+                                    : 'Edit Hasil'}
+                                </button>`
+                              : ''
+                          }
+
+                          ${
+                            isC && eligible && !alreadyRequested
+                              ? `<button
+                                  onclick="requestCertificate('${x.id}')"
+                                  class="text-purple-700 hover:underline mr-3">
+                                  📜 Ajukan Sertifikat
+                                </button>`
+                              : ''
+                          }
+
+                          ${
+                            isC && alreadyRequested
+                              ? '<span class="text-slate-500 mr-3">📜 Sertifikat Diajukan</span>'
+                              : ''
+                          }
+
+                          ${
+                            !isP
+                              ? `<button
+                                  onclick="openExam('${x.id}')"
+                                  class="text-blue-600 hover:underline mr-3">
+                                  ✏️ Edit
+                                </button>
+
+                                <button
+                                  onclick="deleteExam('${x.id}')"
+                                  class="text-red-600 hover:underline">
+                                  🗑️ Hapus
+                                </button>`
+                              : ''
+                          }
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')
+                : `<tr>
+                    <td colspan="${canVerify ? 8 : 7}"
+                        class="p-6 text-center text-slate-500">
+                      Belum ada pengajuan ujian.
                     </td>
-
-
-                    <td class="p-3">
-
-                      ${
-                        x.status === 'Lulus'
-
-                        ?
-
-                        '<span class="text-emerald-600 font-medium">Lulus</span>'
-
-                        :
-
-                        x.status === 'Tidak Lulus'
-
-                        ?
-
-                        '<span class="text-red-600 font-medium">Tidak Lulus</span>'
-
-                        :
-
-                        '<span class="text-amber-600 font-medium">Menunggu Verifikasi</span>'
-                      }
-
-                    </td>
-
-
-                    <td class="p-3">
-                      ${esc(x.predikat || '-')}
-                    </td>
-
-
-                    <td class="p-3 whitespace-nowrap">
-
-                      ${
-                        current.role === 'koordinator'
-
-                        ?
-
-                        `
-                          <button
-                            onclick="verifyExam('${x.id}')"
-                            class="text-emerald-700 hover:underline mr-3">
-
-                            ✏️ ${
-                              x.status === 'Menunggu Verifikasi'
-                              ? 'Verifikasi'
-                              : 'Edit Hasil'
-                            }
-
-                          </button>
-                        `
-
-                        :
-
-                        ''
-                      }
-
-
-                      ${
-                        eligible && !alreadyRequested
-
-                        ?
-
-                        `
-                          <button
-                            onclick="requestCertificate('${x.id}')"
-                            class="text-purple-700 hover:underline mr-3">
-
-                            📜 Ajukan Sertifikat
-
-                          </button>
-                        `
-
-                        :
-
-                        ''
-                      }
-
-
-                      ${
-                        alreadyRequested
-
-                        ?
-
-                        `
-                          <span class="text-slate-500 mr-3">
-
-                            📜 Sertifikat Diajukan
-
-                          </span>
-                        `
-
-                        :
-
-                        ''
-                      }
-
-
-                      <button
-                        onclick="openExam('${x.id}')"
-                        class="text-blue-600 hover:underline mr-3">
-
-                        ✏️ Edit
-
-                      </button>
-
-
-                      <button
-                        onclick="deleteExam('${x.id}')"
-                        class="text-red-600 hover:underline">
-
-                        🗑️ Hapus
-
-                      </button>
-
-                    </td>
-
-                  </tr>
-
-                `;
-
-              }).join('')
-
-
-              :
-
-              `
-
-                <tr>
-
-                  <td
-                    colspan="${current.role === 'koordinator' ? 8 : 7}"
-                    class="p-6 text-center text-slate-500">
-
-                    Belum ada pengajuan ujian.
-
-                  </td>
-
-                </tr>
-
-              `
+                  </tr>`
             }
-
           </tbody>
-
         </table>
-
       </div>
-
     </div>
   `;
 }
@@ -15698,412 +15548,228 @@ async function saveExam(e,id=''){
 }
 
 
-function verifyExam(id){
 
-  const x =
-    cache.exams.find(
-      a => a.id === id
-    );
-
-
-  if(!x){
-    return toast(
-      'Data ujian tidak ditemukan',
-      'err'
-    );
+function verifyExam(id) {
+  if (!['koordinator', 'penguji'].includes(current.role)) {
+    return toast('Anda tidak memiliki akses verifikasi', 'err');
   }
 
+  const x = cache.exams.find(a => a.id === id);
 
-  const opts =
-    cache.examiners
-      .map(e => `
-        <option value="${e.id}">
-          ${esc(e.nama)}
-        </option>
-      `)
-      .join('');
+  if (!x) {
+    return toast('Data ujian tidak ditemukan', 'err');
+  }
 
+  const opts = cache.examiners
+    .map(e => `
+      <option value="${e.id}">
+        ${esc(e.nama)}
+      </option>
+    `)
+    .join('');
 
   $('modalBox').innerHTML = `
-
     <h3 class="font-bold text-lg mb-4">
       Verifikasi / Edit Hasil Ujian
     </h3>
 
-
-    <form
-      onsubmit="saveVerify(event,'${id}')"
-      class="space-y-4">
-
-
+    <form onsubmit="saveVerify(event,'${id}')" class="space-y-4">
       <label class="block text-sm font-medium">
-
         Status Ujian
-
-        <select
-          id="vs"
+        <select id="vs" required
           class="mt-1 w-full p-2.5 border rounded-lg">
-
-          <option value="Lulus">
-            Lulus
-          </option>
-
-          <option value="Tidak Lulus">
-            Tidak Lulus
-          </option>
-
+          <option value="Lulus">Lulus</option>
+          <option value="Tidak Lulus">Tidak Lulus</option>
         </select>
-
       </label>
 
-
       <label class="block text-sm font-medium">
-
         Penguji
-
-        <select
-          id="ve"
-          required
+        <select id="ve" required
           class="mt-1 w-full p-2.5 border rounded-lg">
-
-          <option value="">
-            Pilih penguji
-          </option>
-
+          <option value="">Pilih penguji</option>
           ${opts}
-
         </select>
-
       </label>
-
 
       <label class="block text-sm font-medium">
-
         Predikat
-
-        <select
-          id="vp"
+        <select id="vp" required
           class="mt-1 w-full p-2.5 border rounded-lg">
-
-<option value="Mumtaz Murtafi'">Mumtaz Murtafi'</option>
-<option value="Mumtaz">Mumtaz</option>
-<option value="Jayyid Jiddan">Jayyid Jiddan</option>
-<option value="Jayyid">Jayyid</option>
-
+          <option value="Mumtaz Murtafi'">Mumtaz Murtafi'</option>
+          <option value="Mumtaz">Mumtaz</option>
+          <option value="Jayyid Jiddan">Jayyid Jiddan</option>
+          <option value="Jayyid">Jayyid</option>
         </select>
-
       </label>
-
 
       <div class="flex justify-end gap-2 pt-2">
-
-        <button
-          type="button"
-          onclick="closeModal()"
+        <button type="button" onclick="closeModal()"
           class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg">
-
           Batal
-
         </button>
 
-
-        <button
-          type="submit"
+        <button type="submit"
           class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
-
           Simpan Hasil
-
         </button>
-
       </div>
-
     </form>
   `;
 
-
   $('vs').value =
-    x.status === 'Tidak Lulus'
-      ? 'Tidak Lulus'
+    ['Lulus', 'Tidak Lulus'].includes(x.status)
+      ? x.status
       : 'Lulus';
 
+  $('ve').value = x.examiner_id || '';
 
-  $('ve').value =
-    x.examiner_id || '';
-
-
-  $('vp').value =
-    x.predikat || '';
-
-
+  $('vp').value = x.predikat || "Mumtaz";
   openModal();
 }
 
 
-async function saveVerify(e,id){
 
+async function saveVerify(e, id) {
   e.preventDefault();
 
-  const status =
-    $('vs').value;
-
-  const examiner_id =
-    $('ve').value;
-
-  const predikat =
-    status === 'Lulus'
-      ? $('vp').value
-      : null;
-
-
-  if(!examiner_id){
-
-    return toast(
-      'Silakan pilih penguji',
-      'err'
-    );
-
+  if (!['koordinator', 'penguji'].includes(current.role)) {
+    return toast('Anda tidak memiliki akses verifikasi', 'err');
   }
 
+  const status = $('vs').value;
+  const examiner_id = $('ve').value;
+  const predikat = status === 'Lulus' ? $('vp').value : null;
+
+  if (!examiner_id) {
+    return toast('Silakan pilih penguji', 'err');
+  }
+
+  if (!['Lulus', 'Tidak Lulus'].includes(status)) {
+    return toast('Status ujian tidak valid', 'err');
+  }
 
   const payload = {
-
     status,
-
     predikat,
-
     examiner_id,
-
-    verified_by:
-      current.id,
-
-    verified_at:
-      new Date().toISOString()
-
+    verified_by: current.id,
+    verified_at: new Date().toISOString()
   };
 
+  const { data: examData, error } = await sb
+    .from('exam_requests')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single();
 
-  // Simpan hasil ujian
-  const { data: examData, error } =
-    await sb
-      .from('exam_requests')
-      .update(payload)
-      .eq('id',id)
-      .select()
-      .single();
-
-
-  if(error){
-
+  if (error) {
     console.error(error);
-
-    return toast(
-      error.message,
-      'err'
-    );
-
+    return toast(error.message, 'err');
   }
 
-
-  /*
-   * Jika LULUS, Koordinator langsung
-   * membuat dan menerbitkan sertifikat.
-   */
-  if(
-    status === 'Lulus' &&
-    current.role === 'koordinator'
-  ){
-
+  // Penerbitan otomatis hanya untuk koordinator,
+  // sesuai alur sertifikat yang sudah berjalan.
+  if (status === 'Lulus' && current.role === 'koordinator') {
     const eligiblePredikat = [
       "Mumtaz Murtafi'",
       'Mumtaz',
       'Jayyid Jiddan'
     ];
 
-
-    if(
-      eligiblePredikat.includes(predikat)
-    ){
-
-      // Cek apakah sertifikat sudah ada
+    if (eligiblePredikat.includes(predikat)) {
       const alreadyRequested =
         Array.isArray(cache.certificates) &&
-        cache.certificates.some(
-          x => x.exam_request_id === id
-        );
+        cache.certificates.some(x => x.exam_request_id === id);
 
-
-      if(!alreadyRequested){
-
+      if (!alreadyRequested) {
         const certificatePayload = {
-
-          exam_request_id:
-            id,
-
-          student_id:
-            examData.student_id,
-
-          requested_by:
-            current.id,
-
-          status:
-            'pending'
-
+          exam_request_id: id,
+          student_id: examData.student_id,
+          requested_by: current.id,
+          status: 'pending'
         };
 
-
-        const {
-          data: certificateData,
-          error: certificateError
-        } =
+        const { data: certificateData, error: certificateError } =
           await sb
             .from('certificate_requests')
             .insert(certificatePayload)
             .select()
             .single();
 
-
-        if(certificateError){
-
-          console.error(
-            certificateError
-          );
-
+        if (certificateError) {
+          console.error(certificateError);
           return toast(
-            certificateError.message,
+            'Hasil ujian tersimpan, tetapi pembuatan sertifikat gagal: ' +
+              certificateError.message,
             'err'
           );
-
         }
-
-
-        // Terbitkan langsung
-        const year =
-          new Date().getFullYear();
 
         const existingNumbers =
           Array.isArray(cache.certificates)
             ? cache.certificates
-                .map(
-                  x => x.certificate_number
-                )
+                .map(x => x.certificate_number)
                 .filter(Boolean)
             : [];
-
-
-        const number =
-          String(
-            existingNumbers.length + 1
-          ).padStart(3,'0');
-
 
         const certificate_number =
           '027/SDITQ ABA/UJIAN KELULUSAN JUZ/2026';
 
-
         const issuePayload = {
-
-          status:
-            'issued',
-
+          status: 'issued',
           certificate_number,
-
-          issued_by:
-            current.id,
-
-          issued_at:
-            new Date().toISOString()
-
+          issued_by: current.id,
+          issued_at: new Date().toISOString()
         };
 
-
-        const {
-          data: issuedCertificate,
-          error: issueError
-        } =
+        const { data: issuedCertificate, error: issueError } =
           await sb
             .from('certificate_requests')
             .update(issuePayload)
-            .eq(
-              'id',
-              certificateData.id
-            )
+            .eq('id', certificateData.id)
             .select()
             .single();
 
-
-        if(issueError){
-
-          console.error(
-            issueError
-          );
-
+        if (issueError) {
+          console.error(issueError);
           return toast(
-            issueError.message,
+            'Hasil ujian tersimpan, tetapi penerbitan sertifikat gagal: ' +
+              issueError.message,
             'err'
           );
-
         }
 
-
-        // Update cache
-        if(
-          !Array.isArray(
-            cache.certificates
-          )
-        ){
-
+        if (!Array.isArray(cache.certificates)) {
           cache.certificates = [];
-
         }
 
+        cache.certificates.push(issuedCertificate);
 
-        cache.certificates.push(
-          issuedCertificate
-        );
-
-
-        toast(
-          'Ujian Lulus dan sertifikat berhasil diterbitkan'
-        );
-
-      }else{
-
-        toast(
-          'Ujian Lulus. Sertifikat sudah tersedia'
-        );
-
+        toast('Ujian lulus dan sertifikat berhasil diterbitkan');
+      } else {
+        toast('Ujian lulus. Sertifikat sudah tersedia');
       }
-
-    }else{
-
-      toast(
-        'Ujian Lulus, tetapi predikat belum memenuhi syarat sertifikat'
-      );
-
+    } else {
+      toast('Ujian lulus, tetapi predikat belum memenuhi syarat sertifikat');
     }
-
-  }else{
-
+  } else {
     toast(
       status === 'Lulus'
-        ? 'Ujian dinyatakan Lulus'
-        : 'Ujian dinyatakan Tidak Lulus'
+        ? 'Hasil ujian berhasil disimpan: Lulus'
+        : 'Hasil ujian berhasil disimpan: Tidak Lulus'
     );
-
   }
 
-
   closeModal();
-
   await loadAll();
 
   go(
-    status === 'Lulus' &&
-    current.role === 'koordinator'
+    status === 'Lulus' && current.role === 'koordinator'
       ? 'certificate'
       : 'exam'
   );
-
 }
 
 
