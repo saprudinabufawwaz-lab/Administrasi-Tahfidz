@@ -12882,11 +12882,9 @@ content.innerHTML = html;
 function closeQuarterlyPreview(){
   go('report');
 }
-function renderQuarterlyPreview(classId){
-
+function renderQuarterlyPreview(classId) {
   const container = $('quarterlyPreviewContent');
-
-  if(!container) return;
+  if (!container) return;
 
   const reports = cache.reports.filter(
     r =>
@@ -12897,169 +12895,116 @@ function renderQuarterlyPreview(classId){
       )
   );
 
-  const cls = cache.classes.find(
-    c => c.id === classId
-  );
+  const cls = cache.classes.find(c => c.id === classId);
 
-  if(!reports.length){
-
+  if (!reports.length) {
     container.innerHTML = `
       <div class="p-6 text-center text-slate-500 bg-slate-50 rounded-xl">
         Belum ada data rekap 3 bulan untuk
         <b>${esc(cls?.nama || '-')}</b>.
       </div>
     `;
-
     return;
   }
 
-const rows = reports
-  .slice()
-  .sort((a,b) => {
-
-    const studentA =
-      cache.students.find(
+  const rows = reports
+    .slice()
+    .sort((a, b) => {
+      const studentA = cache.students.find(
         s => s.id === a.student_id
       );
-
-    const studentB =
-      cache.students.find(
+      const studentB = cache.students.find(
         s => s.id === b.student_id
       );
 
-    const absenA =
-      Number(studentA?.nomor_absen || 999999);
+      const absenA = Number(studentA?.nomor_absen ?? 999999);
+      const absenB = Number(studentB?.nomor_absen ?? 999999);
 
-    const absenB =
-      Number(studentB?.nomor_absen || 999999);
+      return absenA - absenB;
+    })
+    .map(r => {
+      // Hubungkan setiap rekap dengan data muridnya.
+      const student = cache.students.find(
+        s => s.id === r.student_id
+      );
 
-    return absenA - absenB;
+      const j1 = cache.journals.find(
+        j => j.id === r.month1_journal_id
+      );
+      const j2 = cache.journals.find(
+        j => j.id === r.month2_journal_id
+      );
+      const j3 = cache.journals.find(
+        j => j.id === r.month3_journal_id
+      );
 
-  })
-  .map(r => {
-
-    const j1 = cache.journals.find(
-      j => j.id === r.month1_journal_id
-    );
-
-    const j2 = cache.journals.find(
-      j => j.id === r.month2_journal_id
-    );
-
-    const j3 = cache.journals.find(
-      j => j.id === r.month3_journal_id
-    );
-
-    return `
-      <tr class="border-t hover:bg-slate-50">
-
-        <td class="p-3">
-          ${esc(student?.nama || '-')}
-        </td>
-
-        <td class="p-3">
-          ${esc(student?.nis || '-')}
-        </td>
-
-        <td class="p-3">
-          ${esc(r.period_start || '-')}
-        </td>
-
-        <td class="p-3">
-          ${esc(j1?.hafalan || '-')}
-        </td>
-
-        <td class="p-3">
-          ${esc(j2?.hafalan || '-')}
-        </td>
-
-        <td class="p-3">
-          ${esc(j3?.hafalan || '-')}
-        </td>
-
-        <td class="p-3 text-center font-semibold">
-          ${r.persentase ?? 0}%
-        </td>
-
-        <td class="p-3">
-          ${esc(r.catatan || '-')}
-        </td>
-
-      </tr>
-    `;
-
-  }).join('');
+      return `
+        <tr class="border-t hover:bg-slate-50">
+          <td class="p-3">
+            ${esc(student?.nomor_absen ?? '-')}
+          </td>
+          <td class="p-3">
+            ${esc(student?.nama || '-')}
+          </td>
+          <td class="p-3">
+            ${esc(student?.nisn || student?.nis || '-')}
+          </td>
+          <td class="p-3">
+            ${esc(r.period_start || '-')}
+          </td>
+          <td class="p-3">
+            ${esc(j1?.hafalan || '-')}
+          </td>
+          <td class="p-3">
+            ${esc(j2?.hafalan || '-')}
+          </td>
+          <td class="p-3">
+            ${esc(j3?.hafalan || '-')}
+          </td>
+          <td class="p-3 text-center font-semibold">
+            ${r.persentase ?? 0}%
+          </td>
+          <td class="p-3">
+            ${esc(r.catatan || '-')}
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
 
   container.innerHTML = `
-
     <div class="mb-3">
-
       <h3 class="font-bold text-base">
         ${esc(cls?.nama || '-')}
       </h3>
-
       <p class="text-xs text-slate-500">
         ${reports.length} data rekap
       </p>
-
     </div>
 
     <div class="overflow-x-auto border rounded-xl">
-
       <table class="w-full text-sm">
-
         <thead>
-
           <tr class="bg-slate-50">
-
-            <th class="p-3 text-left">
-              Nama Murid
-            </th>
-
-            <th class="p-3 text-left">
-  NIS/NISN
-</th>
-
-            <th class="p-3 text-left">
-              Periode
-            </th>
-
-            <th class="p-3 text-left">
-              Bulan 1
-            </th>
-
-            <th class="p-3 text-left">
-              Bulan 2
-            </th>
-
-            <th class="p-3 text-left">
-              Bulan 3
-            </th>
-
-            <th class="p-3 text-center">
-              Persentase
-            </th>
-
-            <th class="p-3 text-left">
-              Catatan
-            </th>
-
+            <th class="p-3 text-left">No. Absen</th>
+            <th class="p-3 text-left">Nama Murid</th>
+            <th class="p-3 text-left">NIS/NISN</th>
+            <th class="p-3 text-left">Periode</th>
+            <th class="p-3 text-left">Bulan 1</th>
+            <th class="p-3 text-left">Bulan 2</th>
+            <th class="p-3 text-left">Bulan 3</th>
+            <th class="p-3 text-center">Persentase</th>
+            <th class="p-3 text-left">Catatan</th>
           </tr>
-
         </thead>
-
         <tbody>
-
           ${rows}
-
         </tbody>
-
       </table>
-
     </div>
-
   `;
 }
+
 
 function openReport(id=''){
 
