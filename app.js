@@ -13587,18 +13587,114 @@ async function deleteReport(id){
   go('report');
 }
 
+
 function exam() {
   const isC = current.role === 'koordinator';
   const isP = current.role === 'penguji';
   const canVerify = isC || isP;
 
-  const rows = cache.exams.filter(x =>
-    isC || isP || x.teacher_id === current.id
+  const allRows = Array.isArray(cache.exams)
+    ? cache.exams.filter(x =>
+        isC || isP || x.teacher_id === current.id
+      )
+    : [];
+
+  // Pilihan filter disimpan saat halaman dirender ulang.
+  const weekFilter = window.examWeekFilter || 'this_week';
+  const statusFilter = window.examStatusFilter || 'all';
+  const searchName = window.examSearchName || '';
+
+  const now = new Date();
+
+  // Awal pekan: Senin pukul 00.00.
+  const startOfWeek = new Date(now);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const day = startOfWeek.getDay();
+  startOfWeek.setDate(
+    startOfWeek.getDate() + (day === 0 ? -6 : 1 - day)
   );
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+  const startOfLastWeek = new Date(startOfWeek);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  );
+
+  function parseExamDate(value) {
+    if (!value) return null;
+
+    // Tanggal YYYY-MM-DD dibaca sebagai tanggal lokal.
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    const date = match
+      ? new Date(
+          Number(match[1]),
+          Number(match[2]) - 1,
+          Number(match[3])
+        )
+      : new Date(value);
+
+    if (Number.isNaN(date.getTime())) return null;
+
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  function matchesWeek(x) {
+    if (weekFilter === 'all') return true;
+
+    const date = parseExamDate(x.tanggal);
+    if (!date) return false;
+
+    if (weekFilter === 'this_week') {
+      return date >= startOfWeek && date < endOfWeek;
+    }
+
+    if (weekFilter === 'last_week') {
+      return date >= startOfLastWeek && date < startOfWeek;
+    }
+
+    if (weekFilter === 'this_month') {
+      return date >= startOfMonth && date <= now;
+    }
+
+    return true;
+  }
+
+  const rows = allRows.filter(x => {
+    const student = cache.students.find(
+      s => s.id === x.student_id
+    );
+
+    const name = student?.nama || '';
+
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'pending' &&
+        (!x.status || x.status === 'Menunggu Verifikasi')) ||
+      (statusFilter === 'passed' && x.status === 'Lulus') ||
+      (statusFilter === 'failed' && x.status === 'Tidak Lulus');
+
+    const matchesName = name
+      .toLowerCase()
+      .includes(searchName.trim().toLowerCase());
+
+    return matchesWeek(x) && matchesStatus && matchesName;
+  });
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
-      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
+
+      <div class="flex flex-col md:flex-row md:justify-between
+                  md:items-center gap-3 mb-4">
+
         <div>
           <b class="text-lg">Ujian Kenaikan Juz</b>
           <p class="text-xs text-slate-500">
@@ -13610,25 +13706,147 @@ function exam() {
           !isP
             ? `<button
                 onclick="openExam()"
-                class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
+                class="bg-emerald-600 hover:bg-emerald-700
+                       text-white px-4 py-2 rounded-lg">
                 + Pengajuan
               </button>`
             : ''
         }
+
       </div>
 
+      <!-- FILTER -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+
+        <div>
+          <label class="block text-sm font-medium mb-1">
+            Periode Ujian
+          </label>
+
+          <select
+            class="w-full border rounded-lg p-2.5"
+            onchange="
+              window.examWeekFilter = this.value;
+              go('exam');
+            ">
+
+            <option value="this_week"
+              ${weekFilter === 'this_week' ? 'selected' : ''}>
+              Minggu Ini
+            </option>
+
+            <option value="last_week"
+              ${weekFilter === 'last_week' ? 'selected' : ''}>
+              Minggu Lalu
+            </option>
+
+            <option value="this_month"
+              ${weekFilter === 'this_month' ? 'selected' : ''}>
+              Bulan Ini
+            </option>
+
+            <option value="all"
+              ${weekFilter === 'all' ? 'selected' : ''}>
+              Semua Periode
+            </option>
+
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-1">
+            Status Ujian
+          </label>
+
+          <select
+            class="w-full border rounded-lg p-2.5"
+            onchange="
+              window.examStatusFilter = this.value;
+              go('exam');
+            ">
+
+            <option value="all"
+              ${statusFilter === 'all' ? 'selected' : ''}>
+              Semua Status
+            </option>
+
+            <option value="pending"
+              ${statusFilter === 'pending' ? 'selected' : ''}>
+              Menunggu Verifikasi
+            </option>
+
+            <option value="passed"
+              ${statusFilter === 'passed' ? 'selected' : ''}>
+              Lulus
+            </option>
+
+            <option value="failed"
+              ${statusFilter === 'failed' ? 'selected' : ''}>
+              Tidak Lulus
+            </option>
+
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-1">
+            Cari Nama Murid
+          </label>
+
+          <input
+            type="search"
+            value="${esc(searchName)}"
+            placeholder="Ketik nama murid..."
+            class="w-full border rounded-lg p-2.5"
+            oninput="
+              window.examSearchName = this.value;
+              const pos = this.selectionStart;
+              go('exam');
+              const input = document.querySelector(
+                'input[type=search]'
+              );
+              if (input) {
+                input.focus();
+                input.setSelectionRange(pos, pos);
+              }
+            ">
+        </div>
+
+      </div>
+
+      <div class="flex flex-wrap justify-between items-center
+                  gap-3 mb-4">
+
+        <p class="text-sm text-slate-600">
+          <b>${rows.length}</b> data ujian ditampilkan.
+        </p>
+
+        <button
+          onclick="
+            window.examWeekFilter = 'this_week';
+            window.examStatusFilter = 'all';
+            window.examSearchName = '';
+            go('exam');
+          "
+          class="px-3 py-2 rounded-lg bg-slate-100
+                 hover:bg-slate-200 text-sm">
+          Reset Filter
+        </button>
+
+      </div>
+
+      <!-- TABEL UJIAN -->
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
+
           <thead>
             <tr class="bg-slate-50">
               <th class="p-3 text-left">Murid</th>
               <th class="p-3 text-left">Halaqoh</th>
               <th class="p-3 text-left">Juz</th>
-              ${
-                canVerify
-                  ? '<th class="p-3 text-left">Guru Pengaju</th>'
-                  : ''
-              }
+              ${canVerify
+                ? '<th class="p-3 text-left">Guru Pengaju</th>'
+                : ''}
               <th class="p-3 text-left">Tanggal</th>
               <th class="p-3 text-left">Status</th>
               <th class="p-3 text-left">Predikat</th>
@@ -13640,16 +13858,16 @@ function exam() {
             ${
               rows.length
                 ? rows.map(x => {
-                    const s = cache.students.find(
-                      a => a.id === x.student_id
+                    const student = cache.students.find(
+                      s => s.id === x.student_id
                     );
 
-                    const h = cache.halaqoh.find(
-                      a => a.id === x.halaqoh_id
+                    const halaqoh = cache.halaqoh.find(
+                      h => h.id === x.halaqoh_id
                     );
 
                     const teacher = cache.profiles.find(
-                      a => a.id === x.teacher_id
+                      p => p.id === x.teacher_id
                     );
 
                     const eligible =
@@ -13668,12 +13886,13 @@ function exam() {
 
                     return `
                       <tr class="border-t hover:bg-slate-50">
+
                         <td class="p-3">
-                          ${esc(s?.nama || '-')}
+                          ${esc(student?.nama || '-')}
                         </td>
 
                         <td class="p-3">
-                          ${esc(h?.nama || '-')}
+                          ${esc(halaqoh?.nama || '-')}
                         </td>
 
                         <td class="p-3">
@@ -13707,14 +13926,17 @@ function exam() {
                         </td>
 
                         <td class="p-3 whitespace-nowrap">
+
                           ${
                             canVerify
                               ? `<button
                                   onclick="verifyExam('${x.id}')"
                                   class="text-emerald-700 hover:underline mr-3">
-                                  ✏️ ${x.status === 'Menunggu Verifikasi'
-                                    ? 'Verifikasi'
-                                    : 'Edit Hasil'}
+                                  ✏️ ${
+                                    x.status === 'Menunggu Verifikasi'
+                                      ? 'Verifikasi'
+                                      : 'Edit Hasil'
+                                  }
                                 </button>`
                               : ''
                           }
@@ -13750,6 +13972,7 @@ function exam() {
                                 </button>`
                               : ''
                           }
+
                         </td>
                       </tr>
                     `;
@@ -13757,13 +13980,15 @@ function exam() {
                 : `<tr>
                     <td colspan="${canVerify ? 8 : 7}"
                         class="p-6 text-center text-slate-500">
-                      Belum ada pengajuan ujian.
+                      Tidak ada data ujian yang sesuai dengan filter.
                     </td>
                   </tr>`
             }
           </tbody>
+
         </table>
       </div>
+
     </div>
   `;
 }
