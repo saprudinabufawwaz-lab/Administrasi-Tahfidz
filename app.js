@@ -11351,6 +11351,24 @@ nipyGuru,
 
 function select(id,label,opts,placeholder='Pilih...'){return `<label class="block text-sm font-medium">${label}<select id="${id}" class="mt-1 w-full p-2.5 border rounded-lg"><option value="">${placeholder}</option>${opts.map(o=>`<option value="${o.id}">${esc(o.nama)}</option>`).join('')}</select></label>`}
 
+function openTeacherJournal(teacherId, halaqohId) {
+  const assignment = cache.teacherHalaqoh.some(
+    t =>
+      t.teacher_id === teacherId &&
+      t.halaqoh_id === halaqohId
+  );
+
+  if (!assignment) {
+    return toast('Penugasan guru tidak ditemukan', 'err');
+  }
+
+  window.selectedJournalTeacher = teacherId;
+  window.selectedJournalHalaqoh = halaqohId;
+
+  go('journal');
+}
+
+
 
 function journal() {
   const ss = cache.students;
@@ -11384,6 +11402,9 @@ function journal() {
   const selectedHalaqoh =
     window.selectedJournalHalaqoh || '';
 
+  const selectedTeacher =
+    window.selectedJournalTeacher || '';
+
   function formatMonth(value) {
     if (!value) return '-';
 
@@ -11400,7 +11421,10 @@ function journal() {
   const filteredRows = rows.filter(j =>
     (!selectedMonth ||
       String(j.month_start || '').slice(0, 7) === selectedMonth) &&
-    (!selectedHalaqoh || j.halaqoh_id === selectedHalaqoh)
+    (!selectedHalaqoh ||
+      j.halaqoh_id === selectedHalaqoh) &&
+    (!selectedTeacher ||
+      j.teacher_id === selectedTeacher)
   );
 
   const monitoring = current.role === 'koordinator'
@@ -11424,6 +11448,7 @@ function journal() {
           );
 
           return {
+            teacherId: t.teacher_id,
             halaqohId: t.halaqoh_id,
             guru: guru.nama || '-',
             halaqoh: halaqoh.nama || '-',
@@ -11439,6 +11464,14 @@ function journal() {
           a.guru.localeCompare(b.guru, 'id')
         )
     : [];
+
+  const selectedTeacherProfile = cache.profiles.find(
+    p => p.id === selectedTeacher
+  );
+
+  const selectedHalaqohData = cache.halaqoh.find(
+    h => h.id === selectedHalaqoh
+  );
 
   return `
     <div class="w-full min-w-0 space-y-5">
@@ -11525,7 +11558,8 @@ function journal() {
                   📋 Monitoring Input Jurnal Guru
                 </h3>
                 <p class="text-sm text-slate-500 mt-1">
-                  Periksa status pengisian setiap guru dan halaqoh.
+                  Klik baris guru untuk melihat jurnal yang diinput
+                  pada halaqoh tersebut.
                 </p>
               </div>
 
@@ -11533,6 +11567,7 @@ function journal() {
                 aria-label="Filter halaqoh monitoring"
                 onchange="
                   window.selectedJournalHalaqoh = this.value;
+                  window.selectedJournalTeacher = '';
                   go('journal');
                 "
                 class="w-full sm:w-64 border border-slate-300
@@ -11563,12 +11598,24 @@ function journal() {
                   ${
                     monitoring.length
                       ? monitoring.map(x => `
-                        <tr class="border-t border-slate-100
-                                   hover:bg-slate-50">
+                        <tr
+                          onclick="
+                            window.selectedJournalTeacher = '${x.teacherId}';
+                            window.selectedJournalHalaqoh = '${x.halaqohId}';
+                            go('journal');
+                          "
+                          title="Klik untuk melihat jurnal guru ini"
+                          class="border-t border-slate-100
+                                 hover:bg-emerald-50 cursor-pointer">
+
                           <td class="p-3 font-medium">
                             ${esc(x.halaqoh)}
                           </td>
-                          <td class="p-3">${esc(x.guru)}</td>
+
+                          <td class="p-3">
+                            ${esc(x.guru)}
+                          </td>
+
                           <td class="p-3">
                             <span class="inline-flex items-center
                               rounded-full px-3 py-1 text-xs font-semibold
@@ -11607,13 +11654,43 @@ function journal() {
 
       <!-- TABEL JURNAL -->
       <section class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm min-w-0">
-        <div class="mb-4">
-          <h3 class="text-lg font-bold text-slate-800">
-            Data Jurnal
-          </h3>
-          <p class="text-sm text-slate-500 mt-1">
-            ${filteredRows.length} data jurnal ditampilkan.
-          </p>
+
+        <div class="flex flex-col sm:flex-row sm:items-center
+                    sm:justify-between gap-3 mb-4">
+
+          <div>
+            <h3 class="text-lg font-bold text-slate-800">
+              Data Jurnal
+            </h3>
+
+            ${
+              selectedTeacher
+                ? `<p class="text-sm text-emerald-700 mt-1">
+                     Guru: ${esc(selectedTeacherProfile?.nama || '-')}
+                     · Halaqoh: ${esc(selectedHalaqohData?.nama || '-')}
+                   </p>`
+                : ''
+            }
+
+            <p class="text-sm text-slate-500 mt-1">
+              ${filteredRows.length} data jurnal ditampilkan.
+            </p>
+          </div>
+
+          ${
+            selectedTeacher
+              ? `<button
+                   onclick="
+                     window.selectedJournalTeacher = '';
+                     window.selectedJournalHalaqoh = '';
+                     go('journal');
+                   "
+                   class="px-3 py-2 rounded-lg bg-slate-100
+                          hover:bg-slate-200 text-sm">
+                   Tampilkan Semua Jurnal
+                 </button>`
+              : ''
+          }
         </div>
 
         <div class="overflow-x-auto rounded-lg border border-slate-200">
@@ -11635,9 +11712,11 @@ function journal() {
                 filteredRows.length
                   ? filteredRows.map(j => {
                       const s = ss.find(x => x.id === j.student_id);
+
                       const h = cache.halaqoh.find(
                         x => x.id === j.halaqoh_id
                       );
+
                       const kelas = cache.classes.find(
                         x => x.id === s?.class_id
                       )?.nama || '-';
@@ -11648,17 +11727,34 @@ function journal() {
                           <td class="p-3 whitespace-nowrap">
                             ${esc(formatMonth(j.month_start))}
                           </td>
-                          <td class="p-3">${esc(s?.nama || '-')}</td>
-                          <td class="p-3">${esc(kelas)}</td>
-                          <td class="p-3">${esc(h?.nama || '-')}</td>
-                          <td class="p-3">${esc(j.hafalan || '-')}</td>
-                          <td class="p-3">${esc(j.catatan || '-')}</td>
+
+                          <td class="p-3">
+                            ${esc(s?.nama || '-')}
+                          </td>
+
+                          <td class="p-3">
+                            ${esc(kelas)}
+                          </td>
+
+                          <td class="p-3">
+                            ${esc(h?.nama || '-')}
+                          </td>
+
+                          <td class="p-3">
+                            ${esc(j.hafalan || '-')}
+                          </td>
+
+                          <td class="p-3">
+                            ${esc(j.catatan || '-')}
+                          </td>
+
                           <td class="p-3 whitespace-nowrap">
                             <button
                               onclick="openJournal('${j.id}')"
                               class="text-blue-600 hover:underline mr-3">
                               ✏️ Edit
                             </button>
+
                             <button
                               onclick="deleteJournal('${j.id}')"
                               class="text-red-600 hover:underline">
@@ -11673,9 +11769,11 @@ function journal() {
                       <td colspan="7"
                           class="p-6 text-center text-slate-500">
                         ${
-                          selectedMonth
-                            ? `Belum ada jurnal untuk ${formatMonth(selectedMonth)}.`
-                            : 'Belum ada jurnal.'
+                          selectedTeacher
+                            ? `Belum ada jurnal dari guru ini pada halaqoh yang dipilih${selectedMonth ? ` untuk ${formatMonth(selectedMonth)}` : ''}.`
+                            : selectedMonth
+                              ? `Belum ada jurnal untuk ${formatMonth(selectedMonth)}.`
+                              : 'Belum ada jurnal.'
                         }
                       </td>
                     </tr>
