@@ -13851,234 +13851,354 @@ async function requestCertificate(examId){
 
   go('exam');
 }
-function certificate(){
 
-  const rows =
-    Array.isArray(cache.certificates)
-      ? cache.certificates.filter(
-          x =>
-            current.role === 'koordinator' ||
-            x.requested_by === current.id
-        )
-      : [];
+function certificate() {
+  const allRows = Array.isArray(cache.certificates)
+    ? cache.certificates.filter(
+        x =>
+          current.role === 'koordinator' ||
+          x.requested_by === current.id
+      )
+    : [];
+
+  // Filter disimpan agar tidak kembali ke awal setiap render.
+  const weekFilter =
+    window.certificateWeekFilter || 'this_week';
+
+  const statusFilter =
+    window.certificateStatusFilter || 'issued';
+
+  const searchName =
+    window.certificateSearchName || '';
+
+  // Rentang tanggal berdasarkan waktu lokal.
+  const now = new Date();
+
+  const startOfWeek = new Date(now);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const day = startOfWeek.getDay();
+  startOfWeek.setDate(
+    startOfWeek.getDate() + (day === 0 ? -6 : 1 - day)
+  );
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+  const startOfLastWeek = new Date(startOfWeek);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  );
+
+  function getIssuedDate(x) {
+    if (!x.issued_at) return null;
+
+    const date = new Date(x.issued_at);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function matchesWeek(x) {
+    const date = getIssuedDate(x);
+
+    if (weekFilter === 'all') return true;
+    if (!date) return false;
+
+    if (weekFilter === 'this_week') {
+      return date >= startOfWeek && date < endOfWeek;
+    }
+
+    if (weekFilter === 'last_week') {
+      return date >= startOfLastWeek && date < startOfWeek;
+    }
+
+    if (weekFilter === 'this_month') {
+      return date >= startOfMonth && date <= now;
+    }
+
+    return true;
+  }
+
+  const rows = allRows.filter(x => {
+    const student = cache.students.find(
+      s => s.id === x.student_id
+    );
+
+    const name = student?.nama || '';
+
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'issued' && x.status === 'issued') ||
+      (statusFilter === 'pending' && x.status === 'pending') ||
+      (statusFilter === 'rejected' && x.status === 'rejected');
+
+    const matchesName = name
+      .toLowerCase()
+      .includes(searchName.trim().toLowerCase());
+
+    return matchesWeek(x) && matchesStatus && matchesName;
+  });
+
+  function formatDate(value) {
+    if (!value) return '-';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
 
-      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
+      <div class="mb-5">
+        <b class="text-lg">Sertifikat Kenaikan Juz</b>
+        <p class="text-xs text-slate-500 mt-1">
+          Pengajuan dan penerbitan sertifikat kenaikan juz.
+        </p>
+      </div>
+
+      <!-- FILTER -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
 
         <div>
-          <b class="text-lg">
-            Sertifikat Kenaikan Juz
-          </b>
+          <label class="block text-sm font-medium mb-1">
+            Periode Terbit
+          </label>
 
-          <p class="text-xs text-slate-500">
-            Pengajuan dan penerbitan sertifikat kenaikan juz.
-          </p>
+          <select
+            class="w-full border rounded-lg p-2.5"
+            onchange="
+              window.certificateWeekFilter = this.value;
+              go('certificate');
+            ">
+
+            <option value="this_week"
+              ${weekFilter === 'this_week' ? 'selected' : ''}>
+              Minggu Ini
+            </option>
+
+            <option value="last_week"
+              ${weekFilter === 'last_week' ? 'selected' : ''}>
+              Minggu Lalu
+            </option>
+
+            <option value="this_month"
+              ${weekFilter === 'this_month' ? 'selected' : ''}>
+              Bulan Ini
+            </option>
+
+            <option value="all"
+              ${weekFilter === 'all' ? 'selected' : ''}>
+              Semua Periode
+            </option>
+
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-1">
+            Status Sertifikat
+          </label>
+
+          <select
+            class="w-full border rounded-lg p-2.5"
+            onchange="
+              window.certificateStatusFilter = this.value;
+              go('certificate');
+            ">
+
+            <option value="issued"
+              ${statusFilter === 'issued' ? 'selected' : ''}>
+              Diterbitkan
+            </option>
+
+            <option value="pending"
+              ${statusFilter === 'pending' ? 'selected' : ''}>
+              Menunggu Penerbitan
+            </option>
+
+            <option value="rejected"
+              ${statusFilter === 'rejected' ? 'selected' : ''}>
+              Ditolak
+            </option>
+
+            <option value="all"
+              ${statusFilter === 'all' ? 'selected' : ''}>
+              Semua Status
+            </option>
+
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-1">
+            Cari Nama Murid
+          </label>
+
+          <input
+            type="search"
+            value="${esc(searchName)}"
+            placeholder="Ketik nama murid..."
+            class="w-full border rounded-lg p-2.5"
+            oninput="
+              window.certificateSearchName = this.value;
+              const pos = this.selectionStart;
+              go('certificate');
+              const input = document.querySelector(
+                'input[type=search]'
+              );
+              if (input) {
+                input.focus();
+                input.setSelectionRange(pos, pos);
+              }
+            ">
         </div>
 
       </div>
 
-      <div class="overflow-x-auto">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
 
+        <p class="text-sm text-slate-600">
+          <b>${rows.length}</b> sertifikat ditampilkan.
+        </p>
+
+        <button
+          onclick="
+            window.certificateWeekFilter = 'this_week';
+            window.certificateStatusFilter = 'issued';
+            window.certificateSearchName = '';
+            go('certificate');
+          "
+          class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+          Reset Filter
+        </button>
+
+      </div>
+
+      <!-- TABEL -->
+      <div class="overflow-x-auto">
         <table class="w-full text-sm">
 
           <thead>
             <tr class="bg-slate-50">
-
-              <th class="p-3 text-left">
-                Murid
-              </th>
-
-              <th class="p-3 text-left">
-                Juz
-              </th>
-
-              <th class="p-3 text-left">
-                Tanggal Ujian
-              </th>
-
-              <th class="p-3 text-left">
-                Predikat
-              </th>
-
-<th class="p-3 text-left">
-  Status Sertifikat
-</th>
-
-<th class="p-3 text-left">
-  Tanggal Diterbitkan
-</th>
-
-<th class="p-3 text-left">
-  Aksi
-</th>
-
+              <th class="p-3 text-left">Murid</th>
+              <th class="p-3 text-left">Juz</th>
+              <th class="p-3 text-left">Tanggal Ujian</th>
+              <th class="p-3 text-left">Predikat</th>
+              <th class="p-3 text-left">Status Sertifikat</th>
+              <th class="p-3 text-left">Tanggal Diterbitkan</th>
+              <th class="p-3 text-left">Aksi</th>
             </tr>
           </thead>
 
           <tbody>
-
             ${
               rows.length
-              ?
-              rows.map(x => {
+                ? rows.map(x => {
+                    const examData = cache.exams.find(
+                      e => e.id === x.exam_request_id
+                    );
 
-                const examData =
-                  cache.exams.find(
-                    e =>
-                      e.id === x.exam_request_id
-                  );
+                    const student = cache.students.find(
+                      s => s.id === x.student_id
+                    );
 
-                const student =
-                  cache.students.find(
-                    s =>
-                      s.id === x.student_id
-                  );
+                    return `
+                      <tr class="border-t hover:bg-slate-50">
 
-                return `
-                  <tr class="border-t hover:bg-slate-50">
+                        <td class="p-3">
+                          ${esc(student?.nama || '-')}
+                        </td>
 
-                    <td class="p-3">
-                      ${esc(
-                        student?.nama || '-'
-                      )}
+                        <td class="p-3">
+                          ${esc(examData?.juz || '-')}
+                        </td>
+
+                        <td class="p-3">
+                          ${esc(examData?.tanggal || '-')}
+                        </td>
+
+                        <td class="p-3">
+                          ${esc(examData?.predikat || '-')}
+                        </td>
+
+                        <td class="p-3">
+                          ${
+                            x.status === 'issued'
+                              ? '<span class="text-emerald-600 font-medium">Diterbitkan</span>'
+                              : x.status === 'rejected'
+                                ? '<span class="text-red-600 font-medium">Ditolak</span>'
+                                : '<span class="text-amber-600 font-medium">Menunggu Penerbitan</span>'
+                          }
+                        </td>
+
+                        <td class="p-3">
+                          ${formatDate(x.issued_at)}
+                        </td>
+
+                        <td class="p-3 whitespace-nowrap">
+
+                          ${
+                            current.role === 'koordinator' &&
+                            x.status === 'pending'
+                              ? `
+                                <button
+                                  onclick="issueCertificate('${x.id}')"
+                                  class="text-emerald-700 hover:underline mr-3">
+                                  📜 Terbitkan
+                                </button>
+
+                                <button
+                                  onclick="rejectCertificate('${x.id}')"
+                                  class="text-red-600 hover:underline mr-3">
+                                  ✖ Tolak
+                                </button>
+                              `
+                              : ''
+                          }
+
+                          ${
+                            x.status === 'issued'
+                              ? `
+                                <button
+                                  onclick="printCertificate('${x.id}')"
+                                  class="text-blue-700 hover:underline mr-3">
+                                  🖨️ Cetak Sertifikat
+                                </button>
+                              `
+                              : ''
+                          }
+
+                          <button
+                            onclick="deleteCertificate('${x.id}')"
+                            class="text-red-600 hover:underline">
+                            🗑️ Hapus
+                          </button>
+
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')
+                : `
+                  <tr>
+                    <td colspan="7"
+                        class="p-6 text-center text-slate-500">
+                      Tidak ada sertifikat yang sesuai dengan filter.
                     </td>
-
-                    <td class="p-3">
-                      ${esc(
-                        examData?.juz || '-'
-                      )}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(
-                        examData?.tanggal || '-'
-                      )}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(
-                        examData?.predikat || '-'
-                      )}
-                    </td>
-
-                    <td class="p-3">
-
-                      ${
-                        x.status === 'issued'
-                        ?
-                        `
-                          <span class="text-emerald-600 font-medium">
-                            Diterbitkan
-                          </span>
-                        `
-                        :
-                        x.status === 'rejected'
-                        ?
-                        `
-                          <span class="text-red-600 font-medium">
-                            Ditolak
-                          </span>
-                        `
-                        :
-                        `
-                          <span class="text-amber-600 font-medium">
-                            Menunggu Penerbitan
-                          </span>
-                        `
-                      }
-
-                    </td>
-<td class="p-3">
-  ${
-    x.issued_at
-    ?
-    new Date(x.issued_at).toLocaleDateString(
-      'id-ID',
-      {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      }
-    )
-    :
-    '-'
-  }
-</td>
-                    <td class="p-3 whitespace-nowrap">
-
-${
-  current.role === 'koordinator' &&
-  x.status === 'pending'
-  ?
-  `
-    <button
-      onclick="issueCertificate('${x.id}')"
-      class="text-emerald-700 hover:underline mr-3">
-      📜 Terbitkan
-    </button>
-
-    <button
-      onclick="rejectCertificate('${x.id}')"
-      class="text-red-600 hover:underline">
-      ✖ Tolak
-    </button>
-  `
-  :
-  ''
-}
-
-${
-  x.status === 'issued'
-  ?
-  `
-    <button
-      onclick="printCertificate('${x.id}')"
-      class="text-blue-700 hover:underline mr-3">
-      🖨️ Cetak Sertifikat
-    </button>
-  `
-  :
-  ''
-}
-
-<button
-  onclick="deleteCertificate('${x.id}')"
-  class="text-red-600 hover:underline">
-  🗑️ Hapus
-</button>
-
-                    </td>
-
                   </tr>
-                `;
-
-              }).join('')
-
-              :
-
-              `
-                <tr>
-
-                  <td
-                    colspan="6"
-                    class="p-6 text-center text-slate-500">
-
-                    Belum ada pengajuan sertifikat.
-
-                  </td>
-
-                </tr>
-              `
+                `
             }
-
           </tbody>
 
         </table>
-
       </div>
-
     </div>
   `;
 }
