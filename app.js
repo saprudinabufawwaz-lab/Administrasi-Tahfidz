@@ -17451,78 +17451,98 @@ function previewFoundationLogo(input){
 }
 async function addMaster(e,table,input){e.preventDefault();const {error}=await sb.from(table).insert({nama:$(input).value.trim()});if(error)return toast(error.message,'err');toast('Data ditambahkan');await loadAll();go('settings')}
 async function delMaster(table,id){if(!confirm('Hapus data ini?'))return;const {error}=await sb.from(table).delete().eq('id',id);if(error)return toast(error.message,'err');toast('Data dihapus');await loadAll();go('settings')}
-function student(){
 
-  const assignedClassIds = current.role === 'koordinator'
+function student() {
+
+  const isCoordinator = current.role === 'koordinator';
+
+  const assignedClassIds = isCoordinator
     ? []
     : cache.teacherClass
         .filter(x => x.teacher_id === current.id)
         .map(x => x.class_id);
 
-  const assignedHalaqohIds = current.role === 'koordinator'
+  const assignedHalaqohIds = isCoordinator
     ? []
     : cache.teacherHalaqoh
         .filter(x => x.teacher_id === current.id)
         .map(x => x.halaqoh_id);
 
-  const selectedCoordinatorClass =
-    current.role === 'koordinator'
-      ? (window.coordinatorStudentClassFilter || '')
-      : '';
+  // Filter koordinator disimpan ketika halaman dirender ulang.
+  const selectedClass = isCoordinator
+    ? (window.coordinatorStudentClassFilter || '')
+    : '';
+
+  const selectedHalaqoh = isCoordinator
+    ? (window.coordinatorStudentHalaqohFilter || '')
+    : '';
 
   let visibleStudents = [...cache.students];
 
-  /*
-    FILTER KELAS KOORDINATOR
-  */
-  if(
-    current.role === 'koordinator' &&
-    selectedCoordinatorClass
-  ){
-
+  // FILTER KELAS KOORDINATOR
+  if (isCoordinator && selectedClass) {
     visibleStudents = visibleStudents.filter(
-      s => s.class_id === selectedCoordinatorClass
+      s => s.class_id === selectedClass
     );
-
   }
 
-  /*
-    FILTER PENUGASAN GURU
-  */
-  if(current.role !== 'koordinator'){
-
-    visibleStudents = visibleStudents.filter(s =>
-      assignedClassIds.includes(s.class_id) ||
-      assignedHalaqohIds.includes(s.halaqoh_id)
+  // FILTER HALAQOH KOORDINATOR
+  if (isCoordinator && selectedHalaqoh) {
+    visibleStudents = visibleStudents.filter(
+      s => s.halaqoh_id === selectedHalaqoh
     );
-
   }
 
-  /*
-    URUTKAN BERDASARKAN NOMOR ABSEN
+  // FILTER PENUGASAN GURU
+  if (!isCoordinator) {
+    const viewFilter = window.studentViewFilter || 'all';
 
-    Murid yang memiliki nomor absen
-    berada di atas.
+    if (viewFilter === 'class') {
+      visibleStudents = visibleStudents.filter(
+        s => assignedClassIds.includes(s.class_id)
+      );
+    } else if (viewFilter === 'halaqoh') {
+      visibleStudents = visibleStudents.filter(
+        s => assignedHalaqohIds.includes(s.halaqoh_id)
+      );
+    } else {
+      visibleStudents = visibleStudents.filter(
+        s =>
+          assignedClassIds.includes(s.class_id) ||
+          assignedHalaqohIds.includes(s.halaqoh_id)
+      );
+    }
+  }
 
-    Murid tanpa nomor absen
-    berada di paling bawah.
-  */
-  visibleStudents.sort((a,b) => {
+  // URUTKAN BERDASARKAN NOMOR ABSEN
+  visibleStudents.sort((a, b) => {
+    const noA = Number(a.nomor_absen) || 999999;
+    const noB = Number(b.nomor_absen) || 999999;
 
-    const noA =
-      Number(a.nomor_absen) || 999999;
+    if (noA !== noB) return noA - noB;
 
-    const noB =
-      Number(b.nomor_absen) || 999999;
-
-    return noA - noB;
-
+    return String(a.nama || '').localeCompare(
+      String(b.nama || ''),
+      'id'
+    );
   });
+
+  // HALAQOH YANG DITAMPILKAN PADA FILTER KOORDINATOR
+  // Jika kelas dipilih, tampilkan halaqoh yang memiliki murid di kelas itu.
+  const halaqohOptions = isCoordinator
+    ? cache.halaqoh.filter(h =>
+        cache.students.some(s =>
+          s.halaqoh_id === h.id &&
+          (!selectedClass || s.class_id === selectedClass)
+        )
+      )
+    : [];
 
   return `
     <div class="bg-white rounded-2xl p-5 shadow-sm">
 
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+      <div class="flex flex-col md:flex-row md:items-center
+                  md:justify-between gap-3 mb-5">
 
         <div>
           <b class="text-lg">Data Murid</b>
@@ -17535,85 +17555,104 @@ function student(){
         <div class="flex flex-wrap gap-2">
 
           ${
-            current.role === 'koordinator'
-            ? `
-              <select
-                onchange="filterCoordinatorStudentClass(this.value)"
-                class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            isCoordinator
+              ? `
+                <!-- FILTER KELAS -->
+                <select
+                  onchange="filterCoordinatorStudentClass(this.value)"
+                  class="border border-slate-300 rounded-lg
+                         px-3 py-2 text-sm bg-white">
 
-                <option value="">
-                  Semua Kelas
-                </option>
+                  <option value="">Semua Kelas</option>
 
-                ${
-                  cache.classes
-                    .map(c => `
-                      <option
-                        value="${c.id}"
-                        ${
-                          (
-                            window.coordinatorStudentClassFilter ||
-                            ''
-                          ) === c.id
-                            ? 'selected'
-                            : ''
-                        }
-                      >
-                        ${esc(c.nama)}
-                      </option>
-                    `)
-                    .join('')
-                }
+                  ${cache.classes.map(c => `
+                    <option
+                      value="${c.id}"
+                      ${selectedClass === c.id ? 'selected' : ''}>
+                      ${esc(c.nama)}
+                    </option>
+                  `).join('')}
 
-              </select>
-            `
-            : ''
-          }
+                </select>
 
-          ${
-            current.role !== 'koordinator'
-            ? `
-              <select
-                id="studentViewFilter"
-                onchange="filterStudentView(this.value)"
-                class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                <!-- FILTER HALAQOH -->
+                <select
+                  onchange="
+                    window.coordinatorStudentHalaqohFilter = this.value;
+                    go('student');
+                  "
+                  class="border border-slate-300 rounded-lg
+                         px-3 py-2 text-sm bg-white">
 
-                <option value="all">
-                  Semua Penugasan
-                </option>
+                  <option value="">Semua Halaqoh</option>
 
-                <option value="class">
-                  📚 Kelas yang Diampu
-                </option>
+                  ${halaqohOptions.map(h => `
+                    <option
+                      value="${h.id}"
+                      ${selectedHalaqoh === h.id ? 'selected' : ''}>
+                      ${esc(h.nama)}
+                    </option>
+                  `).join('')}
 
-                <option value="halaqoh">
-                  📖 Halaqoh yang Diampu
-                </option>
+                </select>
+              `
+              : `
+                <select
+                  onchange="
+                    window.studentViewFilter = this.value;
+                    go('student');
+                  "
+                  class="border border-slate-300 rounded-lg
+                         px-3 py-2 text-sm bg-white">
 
-              </select>
-            `
-            : ''
+                  <option
+                    value="all"
+                    ${(window.studentViewFilter || 'all') === 'all' ? 'selected' : ''}>
+                    Semua Penugasan
+                  </option>
+
+                  <option
+                    value="class"
+                    ${window.studentViewFilter === 'class' ? 'selected' : ''}>
+                    📚 Kelas yang Diampu
+                  </option>
+
+                  <option
+                    value="halaqoh"
+                    ${window.studentViewFilter === 'halaqoh' ? 'selected' : ''}>
+                    📖 Halaqoh yang Diampu
+                  </option>
+
+                </select>
+              `
           }
 
           <button
             onclick="downloadStudentTemplate()"
-            class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg">
+            class="bg-slate-100 hover:bg-slate-200 text-slate-700
+                   px-4 py-2 rounded-lg">
             📄 Download Template Excel
           </button>
 
           <button
             onclick="openStudentImport()"
-            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            class="bg-blue-600 hover:bg-blue-700 text-white
+                   px-4 py-2 rounded-lg">
             📥 Impor dari Excel
           </button>
 
           <button
             onclick="openStudent()"
-            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
+            class="bg-emerald-600 hover:bg-emerald-700 text-white
+                   px-4 py-2 rounded-lg">
             + Tambah Murid
           </button>
 
         </div>
+      </div>
+
+      <div class="mb-3 text-sm text-slate-500">
+        ${visibleStudents.length} murid ditampilkan.
       </div>
 
       <div class="overflow-x-auto">
@@ -17621,145 +17660,99 @@ function student(){
         <table class="w-full text-sm">
 
           <thead>
-
             <tr class="bg-slate-50">
 
-              <th class="p-3 text-left">
-                No. Absen
-              </th>
-
-              <th class="p-3 text-left">
-                Nama
-              </th>
-
-             <th class="p-3 text-left">
-  NIS/NISN
-</th>
-
-              <th class="p-3 text-left">
-                Kelas
-              </th>
-
-              <th class="p-3 text-left">
-                Halaqoh
-              </th>
-
-              <th class="p-3 text-left">
-                Status
-              </th>
-
-              <th class="p-3 text-left">
-                Aksi
-              </th>
+              <th class="p-3 text-left">No. Absen</th>
+              <th class="p-3 text-left">Nama</th>
+              <th class="p-3 text-left">NIS/NISN</th>
+              <th class="p-3 text-left">Kelas</th>
+              <th class="p-3 text-left">Halaqoh</th>
+              <th class="p-3 text-left">Status</th>
+              <th class="p-3 text-left">Aksi</th>
 
             </tr>
-
           </thead>
 
           <tbody id="studentTableBody">
 
             ${
               visibleStudents.length
+                ? visibleStudents.map(s => `
+                    <tr class="border-t hover:bg-slate-50">
 
-              ?
+                      <td class="p-3">
+                        ${esc(String(s.nomor_absen ?? '-'))}
+                      </td>
 
-              visibleStudents.map(s => `
+                      <td class="p-3">
+                        ${esc(s.nama || '-')}
+                      </td>
 
-                <tr class="border-t hover:bg-slate-50">
+                      <td class="p-3">
+                        ${esc(s.nis || '-')}
+                      </td>
 
-                  <td class="p-3">
-                    ${s.nomor_absen || '-'}
-                  </td>
+                      <td class="p-3">
+                        ${esc(
+                          cache.classes.find(
+                            c => c.id === s.class_id
+                          )?.nama || '-'
+                        )}
+                      </td>
 
-                  <td class="p-3">
-                    ${esc(s.nama)}
-                  </td>
+                      <td class="p-3">
+                        ${esc(
+                          cache.halaqoh.find(
+                            h => h.id === s.halaqoh_id
+                          )?.nama || '-'
+                        )}
+                      </td>
 
-                  <td class="p-3">
-                    ${esc(s.nis || '-')}
-                  </td>
+                      <td class="p-3">
+                        ${
+                          s.aktif !== false
+                            ? '<span class="text-emerald-600 font-medium">Aktif</span>'
+                            : '<span class="text-slate-500">Nonaktif</span>'
+                        }
+                      </td>
 
-                  <td class="p-3">
-                    ${esc(
-                      cache.classes.find(
-                        c => c.id === s.class_id
-                      )?.nama || '-'
-                    )}
-                  </td>
+                      <td class="p-3 whitespace-nowrap">
 
-                  <td class="p-3">
-                    ${esc(
-                      cache.halaqoh.find(
-                        h => h.id === s.halaqoh_id
-                      )?.nama || '-'
-                    )}
-                  </td>
+                        <button
+                          onclick="openStudent('${s.id}')"
+                          class="text-blue-600 hover:underline mr-3">
+                          ✏️ Edit
+                        </button>
 
-                  <td class="p-3">
+                        <button
+                          onclick="deleteStudent('${s.id}')"
+                          class="text-red-600 hover:underline">
+                          🗑️ Hapus
+                        </button>
 
-                    ${
-                      s.aktif !== false
-
-                      ? '<span class="text-emerald-600 font-medium">Aktif</span>'
-
-                      : '<span class="text-slate-500">Nonaktif</span>'
-                    }
-
-                  </td>
-
-                  <td class="p-3 whitespace-nowrap">
-
-                    <button
-                      onclick="openStudent('${s.id}')"
-                      class="text-blue-600 hover:underline mr-3">
-                      ✏️ Edit
-                    </button>
-
-                    <button
-                      onclick="deleteStudent('${s.id}')"
-                      class="text-red-600 hover:underline">
-                      🗑️ Hapus
-                    </button>
-
-                  </td>
-
-                </tr>
-
-              `).join('')
-
-              :
-
-              `
-                <tr>
-
-                  <td
-                    colspan="7"
-                    class="p-6 text-center text-slate-500">
-
-                    Belum ada data murid.
-
-                  </td>
-
-                </tr>
-              `
+                      </td>
+                    </tr>
+                  `).join('')
+                : `
+                    <tr>
+                      <td colspan="7"
+                          class="p-6 text-center text-slate-500">
+                        Tidak ada murid pada filter yang dipilih.
+                      </td>
+                    </tr>
+                  `
             }
 
           </tbody>
-
         </table>
-
       </div>
-
     </div>
   `;
 }
-function filterCoordinatorStudentClass(classId){
 
-  window.coordinatorStudentClassFilter =
-    classId || '';
-
+function filterCoordinatorStudentClass(classId) {
+  window.coordinatorStudentClassFilter = classId;
   go('student');
-
 }
 
 async function importStudentRows(){
