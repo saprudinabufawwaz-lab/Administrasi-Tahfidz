@@ -12405,461 +12405,541 @@ async function deleteJournal(id){
   go('journal');
 }
 
-function report(){
-
-  const selectedCoordinatorClass =
-    current.role === 'koordinator'
-      ? (window.coordinatorReportClassFilter || '')
-      : '';
 
 
-const rows = cache.reports
-  .filter(
-    r => {
+function report() {
+  const isCoordinator = current.role === 'koordinator';
 
-      const allowedByRole =
-        current.role === 'koordinator' ||
-        r.teacher_id === current.id;
+  const assignedClassIds = isCoordinator
+    ? cache.classes.map(c => c.id)
+    : cache.teacherClass
+        .filter(tc => tc.teacher_id === current.id)
+        .map(tc => tc.class_id);
 
-      const allowedByClass =
-        current.role !== 'koordinator' ||
-        !selectedCoordinatorClass ||
-        r.class_id === selectedCoordinatorClass;
+  const classes = cache.classes.filter(c =>
+    assignedClassIds.includes(c.id)
+  );
 
-      return (
-        allowedByRole &&
-        allowedByClass
-      );
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April',
+    'Mei', 'Juni', 'Juli', 'Agustus',
+    'September', 'Oktober', 'November', 'Desember'
+  ];
 
+  // Periode tahun ajaran: Juli–Juni.
+  const quarterOptions = [];
+  const years = new Set();
+
+  (cache.journals || []).forEach(j => {
+    if (!j.month_start) return;
+
+    const match = String(j.month_start)
+      .slice(0, 7)
+      .match(/^(\d{4})-(\d{2})$/);
+
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+
+      // Gunakan tahun awal tahun ajaran.
+      years.add(month >= 7 ? year : year - 1);
     }
-  )
-  .slice()
-  .sort((a,b) => {
-
-    const studentA =
-      cache.students.find(
-        s => s.id === a.student_id
-      );
-
-    const studentB =
-      cache.students.find(
-        s => s.id === b.student_id
-      );
-
-    const absenA =
-      Number(studentA?.nomor_absen || 999999);
-
-    const absenB =
-      Number(studentB?.nomor_absen || 999999);
-
-    return absenA - absenB;
-
   });
 
+  const now = new Date();
+  years.add(now.getMonth() + 1 >= 7
+    ? now.getFullYear()
+    : now.getFullYear() - 1);
+
+  [...years].sort((a, b) => b - a).forEach(year => {
+    quarterOptions.push(
+      {
+        key: `${year}-Q1`,
+        label: `Juli–September ${year}`,
+        months: [7, 8, 9],
+        year
+      },
+      {
+        key: `${year}-Q2`,
+        label: `Oktober–Desember ${year}`,
+        months: [10, 11, 12],
+        year
+      },
+      {
+        key: `${year}-Q3`,
+        label: `Januari–Maret ${year + 1}`,
+        months: [1, 2, 3],
+        year: year + 1
+      },
+      {
+        key: `${year}-Q4`,
+        label: `April–Juni ${year + 1}`,
+        months: [4, 5, 6],
+        year: year + 1
+      }
+    );
+  });
+
+  const uniqueQuarters = [
+    ...new Map(quarterOptions.map(q => [q.key, q])).values()
+  ].sort((a, b) => b.key.localeCompare(a.key));
+
+  const currentMonth = now.getMonth() + 1;
+  const currentSchoolYear = currentMonth >= 7
+    ? now.getFullYear()
+    : now.getFullYear() - 1;
+
+  const currentQuarterNumber =
+    currentMonth >= 7 && currentMonth <= 9 ? 1 :
+    currentMonth >= 10 ? 2 :
+    currentMonth >= 1 && currentMonth <= 3 ? 3 : 4;
+
+  const defaultQuarterKey =
+    `${currentSchoolYear}-Q${currentQuarterNumber}`;
+
+  const requestedQuarter = window.autoReportQuarter || defaultQuarterKey;
+
+  const chosenQuarter = uniqueQuarters.find(
+    q => q.key === requestedQuarter
+  ) || uniqueQuarters[0];
+
+  const selectedQuarterKey = chosenQuarter?.key || '';
+
+  window.autoReportQuarter = selectedQuarterKey;
+
+  const selectedClass = isCoordinator
+    ? (window.autoReportClass || '')
+    : '';
+
+  const periodMonths = chosenQuarter
+    ? chosenQuarter.months.map(month => ({
+        month,
+        year: chosenQuarter.year,
+        label: monthNames[month - 1]
+      }))
+    : [];
+
+  const journalForMonth = (studentId, monthInfo) => {
+    const targetMonth =
+      `${monthInfo.year}-${String(monthInfo.month).padStart(2, '0')}`;
+
+    return (cache.journals || []).filter(j =>
+      j.student_id === studentId &&
+      j.month_start &&
+      String(j.month_start).slice(0, 7) === targetMonth
+    );
+  };
+
+  const students = (cache.students || [])
+    .filter(s =>
+      assignedClassIds.includes(s.class_id) &&
+      (!selectedClass || s.class_id === selectedClass)
+    )
+    .slice()
+    .sort((a, b) => {
+      const noA = Number(a.nomor_absen) || 999999;
+      const noB = Number(b.nomor_absen) || 999999;
+
+      return noA - noB ||
+        String(a.nama || '').localeCompare(String(b.nama || ''), 'id');
+    });
+
+  const rows = students.map(student => {
+    const cls = cache.classes.find(c => c.id === student.class_id);
+
+    const monthlyJournals = periodMonths.map(monthInfo =>
+      journalForMonth(student.id, monthInfo)
+    );
+
+    const target = hitungPersentaseTargetHafalan(
+      student,
+      cls,
+      periodMonths
+    );
+
+    return {
+      student,
+      cls,
+      monthlyJournals,
+      target
+    };
+  });
+
+  const escapeHtml = value => String(value ?? '').replace(
+    /[&<>"']/g,
+    ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[ch]
+  );
+
+  const monthCell = journals => {
+    const values = journals
+      .map(j => String(j.hafalan || '').trim())
+      .filter(Boolean);
+
+    return values.length
+      ? escapeHtml([...new Set(values)].join('; '))
+      : '<span class="text-slate-400">—</span>';
+  };
+
+  const classOptions = classes.map(c => `
+    <option value="${escapeHtml(c.id)}"
+      ${selectedClass === c.id ? 'selected' : ''}>
+      ${escapeHtml(c.nama)}
+    </option>
+  `).join('');
+
+  const quarterSelectOptions = uniqueQuarters.map(q => `
+    <option value="${escapeHtml(q.key)}"
+      ${selectedQuarterKey === q.key ? 'selected' : ''}>
+      ${escapeHtml(q.label)}
+    </option>
+  `).join('');
+
+  const tableRows = rows.map(({ student, cls, monthlyJournals, target }) => {
+    const noteValues = monthlyJournals
+      .flatMap(monthJournals =>
+        monthJournals.map(j => String(j.catatan || '').trim())
+      )
+      .filter(Boolean);
+
+    const notes = [...new Set(noteValues)].join('; ');
+
+    return `
+      <tr class="border-b border-slate-100 hover:bg-slate-50">
+        <td class="px-3 py-3 text-center">
+          ${escapeHtml(student.nomor_absen ?? '—')}
+        </td>
+        <td class="px-3 py-3 font-medium">
+          ${escapeHtml(student.nama || '')}
+        </td>
+        <td class="px-3 py-3">
+          ${escapeHtml(student.nisn || student.nis || '—')}
+        </td>
+        <td class="px-3 py-3">
+          ${escapeHtml(cls?.nama || '—')}
+        </td>
+        ${monthlyJournals.map(journals => `
+          <td class="px-3 py-3 min-w-40">
+            ${monthCell(journals)}
+          </td>
+        `).join('')}
+        <td class="px-3 py-3 text-center font-semibold">
+          ${target.persentase == null
+            ? '—'
+            : `${target.persentase}%`}
+        </td>
+        <td class="px-3 py-3">
+          <span class="${
+            target.persentase === 100
+              ? 'text-green-700 bg-green-50'
+              : 'text-amber-700 bg-amber-50'
+          } rounded px-2 py-1 text-xs font-medium">
+            ${escapeHtml(target.keterangan)}
+          </span>
+          <div class="text-xs text-slate-500 mt-1">
+            ${target.tercapai ?? 0} dari ${target.target ?? 0} surah
+          </div>
+        </td>
+        <td class="px-3 py-3 min-w-48">
+          ${escapeHtml(notes || '—')}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
   return `
-    <div class="bg-white rounded-2xl p-5 shadow-sm">
-
-      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
-
+    <div class="space-y-5">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <b class="text-lg">Rekap 3 Bulan</b>
-
-          <p class="text-xs text-slate-500">
-            Guru hanya dapat mengelola laporan dari penugasannya.
+          <h2 class="text-xl font-bold text-slate-800">Rekap 3 Bulan</h2>
+          <p class="text-sm text-slate-500">
+            Rekap otomatis berdasarkan jurnal bulanan dan target hafalan kelas.
           </p>
         </div>
 
-<div class="flex gap-2 flex-wrap">
-  ${
-    current.role === 'koordinator'
-    ? `
-      <select
-        onchange="filterCoordinatorReportClass(this.value)"
-        class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
-
-        <option value="">
-          Semua Kelas
-        </option>
-
-        ${
-          cache.classes
-            .map(c => `
-              <option
-                value="${c.id}"
-                ${
-                  (
-                    window.coordinatorReportClassFilter ||
-                    ''
-                  ) === c.id
-                    ? 'selected'
-                    : ''
-                }
-              >
-                ${esc(c.nama)}
-              </option>
-            `)
-            .join('')
-        }
-
-      </select>
-    `
-    : ''
-  }
-  <button
-    onclick="previewQuarterlyReports()"
-    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">
-    📋 Preview
-  </button>
-
-  <button
-    onclick="exportQuarterlyReportsExcel()"
-    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
-    📊 Export Excel
-  </button>
-
-  <button
-
-    onclick="openReport()"
-    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">
-    + Isi Rekap
-  </button>
-  
-
-</div>
-
+        <button onclick="exportQuarterlyReportsExcel()"
+          class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+          <i class="fa-solid fa-file-excel mr-2"></i>Ekspor Excel
+        </button>
       </div>
 
-      <div class="overflow-x-auto">
+      <div class="bg-white border border-slate-200 rounded-xl p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Periode
+            </label>
+            <select
+              class="w-full border border-slate-300 rounded-lg p-2"
+              onchange="window.autoReportQuarter=this.value; go('report')">
+              ${quarterSelectOptions}
+            </select>
+          </div>
 
-        <table class="w-full text-sm">
+          ${isCoordinator ? `
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">
+                Filter Kelas
+              </label>
+              <select
+                class="w-full border border-slate-300 rounded-lg p-2"
+                onchange="window.autoReportClass=this.value; go('report')">
+                <option value="">Semua kelas</option>
+                ${classOptions}
+              </select>
+            </div>
+          ` : ''}
+        </div>
 
-          <thead>
+        <p class="text-xs text-slate-500 mt-3">
+          Persentase menunjukkan jumlah surah target yang dikenali dalam jurnal
+          periode terpilih dibandingkan target kelas.
+        </p>
+      </div>
 
-            <tr class="bg-slate-50">
-
-              <th class="p-3 text-left">Periode</th>
-              <th class="p-3 text-left">Murid</th>
-              <th class="p-3 text-left">Kelas</th>
-              <th class="p-3 text-left">Bulan 1</th>
-              <th class="p-3 text-left">Bulan 2</th>
-              <th class="p-3 text-left">Bulan 3</th>
-              <th class="p-3 text-left">Persentase</th>
-              <th class="p-3 text-left">Catatan</th>
-              <th class="p-3 text-left">Aksi</th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            ${
-              rows.length
-              ?
-              rows.map(r => {
-
-                const s = cache.students.find(
-                  x => x.id === r.student_id
-                );
-
-                const c = cache.classes.find(
-                  x => x.id === r.class_id
-                );
-
-                const j1 = cache.journals.find(
-                  x => x.id === r.month1_journal_id
-                );
-
-                const j2 = cache.journals.find(
-                  x => x.id === r.month2_journal_id
-                );
-
-                const j3 = cache.journals.find(
-                  x => x.id === r.month3_journal_id
-                );
-
-                return `
-                  <tr class="border-t hover:bg-slate-50">
-
-                    <td class="p-3">
-                      ${esc(r.period_start || '-')}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(s?.nama || '-')}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(c?.nama || '-')}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(j1?.hafalan || '-')}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(j2?.hafalan || '-')}
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(j3?.hafalan || '-')}
-                    </td>
-
-                    <td class="p-3">
-                      ${r.persentase ?? 0}%
-                    </td>
-
-                    <td class="p-3">
-                      ${esc(r.catatan || '-')}
-                    </td>
-
-                    <td class="p-3 whitespace-nowrap">
-
-                      <button
-                        onclick="openReport('${r.id}')"
-                        class="text-blue-600 hover:underline mr-3">
-                        ✏️ Edit
-                      </button>
-
-                      <button
-                        onclick="deleteReport('${r.id}')"
-                        class="text-red-600 hover:underline">
-                        🗑️ Hapus
-                      </button>
-
-                    </td>
-
-                  </tr>
-                `;
-
-              }).join('')
-
-              :
-
-              `
+      <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+              <tr>
+                <th class="px-3 py-3 text-center">No. Absen</th>
+                <th class="px-3 py-3 text-left">Nama Murid</th>
+                <th class="px-3 py-3 text-left">NIS/NISN</th>
+                <th class="px-3 py-3 text-left">Kelas</th>
+                ${periodMonths.map(m => `
+                  <th class="px-3 py-3 text-left">${escapeHtml(m.label)}</th>
+                `).join('')}
+                <th class="px-3 py-3 text-center">Persentase</th>
+                <th class="px-3 py-3 text-left">Keterangan Target</th>
+                <th class="px-3 py-3 text-left">Catatan</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows || `
                 <tr>
-
-                  <td
-                    colspan="9"
-                    class="p-6 text-center text-slate-500">
-                    Belum ada rekap 3 bulan.
+                  <td colspan="10" class="px-4 py-10 text-center text-slate-400">
+                    Belum ada data murid untuk ditampilkan.
                   </td>
-
                 </tr>
-              `
-            }
-
-          </tbody>
-
-        </table>
-
+              `}
+            </tbody>
+          </table>
+        </div>
       </div>
-
     </div>
   `;
 }
 
-function exportQuarterlyReportsExcel(){
+// Fungsi lama dipertahankan sebagai pengarah ke halaman rekap otomatis.
+function previewQuarterlyReports() {
+  go('report');
+}
 
-  if(typeof XLSX === 'undefined'){
-    return toast(
-      'Library Excel belum tersedia',
-      'err'
-    );
+function renderQuarterlyPreview() {
+  go('report');
+}
+
+
+
+
+function exportQuarterlyReportsExcel() {
+  if (typeof XLSX === 'undefined') {
+    return toast('Library Excel belum tersedia', 'err');
   }
 
-  let reports = cache.reports.filter(
-    r =>
-      current.role === 'koordinator' ||
-      r.teacher_id === current.id
+  const isCoordinator = current.role === 'koordinator';
+
+  const assignedClassIds = isCoordinator
+    ? cache.classes.map(c => c.id)
+    : cache.teacherClass
+        .filter(tc => tc.teacher_id === current.id)
+        .map(tc => tc.class_id);
+
+  const classes = cache.classes.filter(c =>
+    assignedClassIds.includes(c.id)
   );
 
-  if(!reports.length){
-    return toast(
-      'Belum ada data rekap 3 bulan untuk diekspor',
-      'err'
-    );
+  if (!classes.length) {
+    return toast('Tidak ada kelas yang dapat diekspor', 'err');
   }
 
-  /*
-    KOORDINATOR:
-    ekspor berdasarkan seluruh kelas master.
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April',
+    'Mei', 'Juni', 'Juli', 'Agustus',
+    'September', 'Oktober', 'November', 'Desember'
+  ];
 
-    GURU:
-    hanya kelas yang menjadi penugasannya.
-  */
+  const selectedQuarterKey = window.autoReportQuarter || '';
+  const quarterMatch = selectedQuarterKey.match(/^(\d{4})-Q([1-4])$/);
 
-  const classes =
-    current.role === 'koordinator'
-      ? cache.classes
-      : cache.classes.filter(c =>
-          cache.teacherClass.some(
-            tc =>
-              tc.teacher_id === current.id &&
-              tc.class_id === c.id
-          )
-        );
-
-  if(!classes.length){
-    return toast(
-      'Tidak ada kelas yang dapat diekspor',
-      'err'
-    );
+  if (!quarterMatch) {
+    return toast('Pilih periode rekap terlebih dahulu', 'err');
   }
+
+  const startYear = Number(quarterMatch[1]);
+  const quarter = Number(quarterMatch[2]);
+
+  const quarterConfig = {
+    1: { months: [7, 8, 9], year: startYear },
+    2: { months: [10, 11, 12], year: startYear },
+    3: { months: [1, 2, 3], year: startYear + 1 },
+    4: { months: [4, 5, 6], year: startYear + 1 }
+  };
+
+  const config = quarterConfig[quarter];
+
+  const periodMonths = config.months.map(month => ({
+    month,
+    year: config.year,
+    label: monthNames[month - 1]
+  }));
+
+  const periodLabel =
+    `${monthNames[config.months[0] - 1]}–` +
+    `${monthNames[config.months[2] - 1]} ${config.year}`;
 
   const workbook = XLSX.utils.book_new();
+  const students = cache.students || [];
+  const journals = cache.journals || [];
 
   classes.forEach(cls => {
+    const classStudents = students
+      .filter(s => s.class_id === cls.id)
+      .slice()
+      .sort((a, b) => {
+        const noA = Number(a.nomor_absen) || 999999;
+        const noB = Number(b.nomor_absen) || 999999;
 
-    const classReports = reports.filter(
-      r => r.class_id === cls.id
-    );
+        return noA - noB ||
+          String(a.nama || '').localeCompare(String(b.nama || ''), 'id');
+      });
 
-    /*
-      Tetap buat sheet kelas walaupun
-      belum ada rekap.
-    */
+    const data = classStudents.map(student => {
+      const monthlyJournals = periodMonths.map(monthInfo => {
+        const targetMonth =
+          `${monthInfo.year}-${String(monthInfo.month).padStart(2, '0')}`;
 
-   const data = classReports
-  .slice()
-  .sort((a,b) => {
+        return journals.filter(j =>
+          j.student_id === student.id &&
+          j.month_start &&
+          String(j.month_start).slice(0, 7) === targetMonth
+        );
+      });
 
-    const studentA =
-      cache.students.find(
-        s => s.id === a.student_id
+      const clsForStudent =
+        cache.classes.find(c => c.id === student.class_id);
+
+      const target = hitungPersentaseTargetHafalan(
+        student,
+        clsForStudent,
+        periodMonths
       );
 
-    const studentB =
-      cache.students.find(
-        s => s.id === b.student_id
-      );
+      const notes = [...new Set(
+        monthlyJournals
+          .flatMap(monthRecords =>
+            monthRecords.map(j => String(j.catatan || '').trim())
+          )
+          .filter(Boolean)
+      )].join('; ');
 
-    const absenA =
-      Number(studentA?.nomor_absen || 999999);
-
-    const absenB =
-      Number(studentB?.nomor_absen || 999999);
-
-    return absenA - absenB;
-
-  })
-  .map(r => {
-      const j1 = cache.journals.find(
-        j => j.id === r.month1_journal_id
-      );
-
-      const j2 = cache.journals.find(
-        j => j.id === r.month2_journal_id
-      );
-
-      const j3 = cache.journals.find(
-        j => j.id === r.month3_journal_id
-      );
-
-      return {
-        'Periode': r.period_start || '',
-        'Nama Murid': student?.nama || '',
-       'NIS/NISN': student?.nis || '',
-        'Kelas': cls.nama || '',
-        'Bulan 1': j1?.hafalan || '',
-        'Bulan 2': j2?.hafalan || '',
-        'Bulan 3': j3?.hafalan || '',
-        'Persentase': Number(r.persentase || 0),
-        'Catatan': r.catatan || ''
+      const row = {
+        'Periode': periodLabel,
+        'No. Absen': student.nomor_absen ?? '',
+        'Nama Murid': student.nama || '',
+        'NIS/NISN': student.nisn || student.nis || '',
+        'Kelas': cls.nama || ''
       };
 
+      periodMonths.forEach((monthInfo, index) => {
+        const hafalan = monthlyJournals[index]
+          .map(j => String(j.hafalan || '').trim())
+          .filter(Boolean);
+
+        row[monthInfo.label] = [...new Set(hafalan)].join('; ');
+      });
+
+      row['Jumlah Surah Tercapai'] = target.tercapai ?? 0;
+      row['Jumlah Surah Target'] = target.target ?? 0;
+      row['Persentase'] = target.persentase == null
+        ? ''
+        : target.persentase / 100;
+      row['Keterangan Target'] = target.keterangan;
+      row['Catatan'] = notes;
+
+      return row;
     });
 
-    /*
-      Jika belum ada data,
-      tetap tampilkan header.
-    */
-
-    const worksheet = XLSX.utils.json_to_sheet(
-      data.length
-        ? data
-        : [{
-            'Periode': '',
-            'Nama Murid': '',
-            'NIS/NISN': '',
-            'Kelas': cls.nama || '',
-            'Bulan 1': '',
-            'Bulan 2': '',
-            'Bulan 3': '',
-            'Persentase': '',
-            'Catatan': ''
-          }]
-    );
-
-    /*
-      Lebar kolom agar file Excel
-      langsung nyaman dibaca.
-    */
-
-    worksheet['!cols'] = [
-      { wch: 14 },
-      { wch: 28 },
-      { wch: 15 },
-      { wch: 20 },
-      { wch: 30 },
-      { wch: 30 },
-      { wch: 30 },
-      { wch: 14 },
-      { wch: 40 }
+    const headers = [
+      'Periode',
+      'No. Absen',
+      'Nama Murid',
+      'NIS/NISN',
+      'Kelas',
+      ...periodMonths.map(m => m.label),
+      'Jumlah Surah Tercapai',
+      'Jumlah Surah Target',
+      'Persentase',
+      'Keterangan Target',
+      'Catatan'
     ];
 
-    /*
-      Nama sheet Excel maksimal 31 karakter
-      dan tidak boleh mengandung karakter tertentu.
-    */
+    const worksheet = XLSX.utils.json_to_sheet(data, {
+      header: headers
+    });
 
-    let sheetName = String(
-      cls.nama || 'Kelas'
-    )
-      .replace(/[\\\/\?\*\[\]\:]/g, '')
-      .substring(0, 31)
-      .trim();
+    // Format persentase sebagai persen Excel.
+    for (let rowIndex = 2; rowIndex <= data.length + 1; rowIndex++) {
+      const cellAddress = XLSX.utils.encode_cell({
+        r: rowIndex - 1,
+        c: headers.indexOf('Persentase')
+      });
 
-    if(!sheetName){
-      sheetName = 'Kelas';
+      if (worksheet[cellAddress] &&
+          worksheet[cellAddress].v !== '') {
+        worksheet[cellAddress].z = '0.00%';
+      }
     }
 
-    /*
-      Hindari nama sheet duplikat.
-    */
+    worksheet['!cols'] = headers.map(header => {
+      if (header === 'Nama Murid') return { wch: 28 };
+      if (header === 'Catatan') return { wch: 40 };
+      if (periodMonths.some(m => m.label === header)) return { wch: 30 };
+      if (header === 'Keterangan Target') return { wch: 25 };
+      if (header === 'NIS/NISN') return { wch: 18 };
+      return { wch: 16 };
+    });
 
-    let originalName = sheetName;
+    let sheetName = String(cls.nama || 'Kelas')
+      .replace(/[\\/?*[\]:]/g, '')
+      .substring(0, 31)
+      .trim() || 'Kelas';
+
+    const originalName = sheetName;
     let counter = 2;
 
-    while(workbook.SheetNames.includes(sheetName)){
-
-      const suffix = ` (${counter})`;
-
+    while (workbook.SheetNames.includes(sheetName)) {
+      const suffix = ` (${counter++})`;
       sheetName =
-        originalName
-          .substring(0, 31 - suffix.length) +
-        suffix;
-
-      counter++;
+        originalName.substring(0, 31 - suffix.length) + suffix;
     }
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      sheetName
-    );
-
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   });
 
   XLSX.writeFile(
     workbook,
-    'Rekap_3_Bulan.xlsx'
+    `Rekap_3_Bulan_${selectedQuarterKey}.xlsx`
   );
 
-  toast(
-    'Rekap 3 bulan berhasil diekspor ke Excel'
-  );
+  toast('Rekap 3 bulan berhasil diekspor ke Excel');
 }
+
 function filterCoordinatorReportClass(classId){
 
   window.coordinatorReportClassFilter =
@@ -12868,239 +12948,192 @@ function filterCoordinatorReportClass(classId){
   go('report');
 
 }
-function previewQuarterlyReports(){
 
-  let reports = cache.reports.filter(
-    r =>
-      current.role === 'koordinator' ||
-      r.teacher_id === current.id
-  );
 
-  if(!reports.length){
-    return toast(
-      'Belum ada data rekap 3 bulan',
-      'err'
-    );
-  }
-
-  const classes =
-    current.role === 'koordinator'
-      ? cache.classes
-      : cache.classes.filter(c =>
-          cache.teacherClass.some(
-            tc =>
-              tc.teacher_id === current.id &&
-              tc.class_id === c.id
-          )
-        );
-
-  if(!classes.length){
-    return toast(
-      'Tidak ada kelas yang dapat ditampilkan',
-      'err'
-    );
-  }
-
-  const classOptions = classes.map(c => `
-    <option value="${c.id}">
-      ${esc(c.nama)}
-    </option>
-  `).join('');
-
-  const firstClassId = classes[0].id;
-
-  const html = `
-    <div class="bg-white rounded-2xl p-5 shadow-sm">
-
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
-
-        <div>
-          <b class="text-lg">
-            📋 Preview Rekap 3 Bulan
-          </b>
-
-          <p class="text-xs text-slate-500">
-            Periksa data sebelum diekspor ke Excel.
-          </p>
-        </div>
-
-        <div class="flex gap-2 flex-wrap">
-
-          <button
-  onclick="closeQuarterlyPreview()"
-  class="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg">
-  ← Kembali
-</button>
-
-          <button
-            onclick="exportQuarterlyReportsExcel()"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-            📊 Export Excel
-          </button>
-
-        </div>
-
-      </div>
-
-      <div class="mb-5">
-
-        <label class="block text-sm font-semibold mb-2">
-          Pilih Kelas
-        </label>
-
-        <select
-          id="previewReportClass"
-          onchange="renderQuarterlyPreview(this.value)"
-          class="w-full md:w-80 border rounded-lg px-3 py-2">
-
-          ${classOptions}
-
-        </select>
-
-      </div>
-
-      <div id="quarterlyPreviewContent"></div>
-
-    </div>
-  `;
-
-  const content = $('content');
-
-if(!content){
-  return toast(
-    'Area aplikasi tidak ditemukan',
-    'err'
-  );
+function normalisasiTeksHafalan(teks) {
+  return String(teks || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[–—]/g, '-')
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-content.innerHTML = html;
+const TARGET_SURAH_KELAS = {
+  1: [
+    [89, 'Al-Fajr', ['alfajr', 'al fajr']],
+    [90, 'Al-Balad', ['albalad', 'al balad']],
+    [91, 'Asy-Syams', ['asy syams', 'asy-syams', 'asyams', 'as syams', 'ash shams']],
+    [92, 'Al-Lail', ['al lail', 'al-lail', 'allail', 'al layl']],
+    [93, 'Ad-Dhuha', ['ad dhuha', 'ad-duha', 'adduha', 'adh dhuha']],
+    [94, 'Al-Insyirah', ['al insyirah', 'al-insyirah', 'asy syarh', 'asy syarh']],
+    [95, 'At-Tin', ['at tin', 'at-tin', 'attin']],
+    [96, 'Al-Alaq', ['al alaq', 'al-alaq', 'alaq']],
+    [97, 'Al-Qadr', ['al qadr', 'al-qadr', 'alqadr']],
+    [98, 'Al-Bayyinah', ['al bayyinah', 'al-bayyinah', 'bayyinah']],
+    [99, 'Az-Zalzalah', ['az zalzalah', 'az-zalzalah', 'zalzalah']],
+    [100, 'Al-Adiyat', ['al adiyat', 'al-adiyat', 'adiyat']],
+    [101, 'Al-Qariah', ['al qariah', 'al-qariah', 'qariah']],
+    [102, 'At-Takatsur', ['at takatsur', 'at-takatsur', 'takatsur']],
+    [103, 'Al-Asr', ['al asr', 'al-asr', 'alasr']],
+    [104, 'Al-Humazah', ['al humazah', 'al-humazah', 'humazah']],
+    [105, 'Al-Fil', ['al fil', 'al-fil', 'alfil']],
+    [106, 'Quraisy', ['quraisy', 'quraish', 'quraysh']],
+    [107, 'Al-Maun', ['al maun', 'al-maun', 'almaun']],
+    [108, 'Al-Kautsar', ['al kautsar', 'al-kautsar', 'alkautsar', 'al kawthar']],
+    [109, 'Al-Kafirun', ['al kafirun', 'al-kafirun', 'alkafirun']],
+    [110, 'An-Nasr', ['an nasr', 'an-nasr', 'annasr']],
+    [111, 'Al-Lahab', ['al lahab', 'al-lahab', 'allhab']],
+    [112, 'Al-Ikhlas', ['al ikhlas', 'al-ikhlas', 'alikhlas']],
+    [113, 'Al-Falaq', ['al falaq', 'al-falaq', 'alfalaq']],
+    [114, 'An-Naas', ['an naas', 'an-naas', 'annas', 'an nas', 'an-nas']]
+  ],
+  2: [
+    [78, 'An-Naba', ['an naba', 'an-naba', 'annaba']],
+    [79, 'An-Naziat', ['an naziat', 'an-naziat', 'annaziat']],
+    [80, 'Abasa', ['abasa']],
+    [81, 'At-Takwir', ['at takwir', 'at-takwir', 'attakwir']],
+    [82, 'Al-Infitar', ['al infitar', 'al-infitar', 'alinfitar']],
+    [83, 'Al-Mutaffifin', ['al mutaffifin', 'al-mutaffifin', 'mutaffifin']],
+    [84, 'Al-Insyiqaq', ['al insyiqaq', 'al-insyiqaq', 'insyiqaq']],
+    [85, 'Al-Buruj', ['al buruj', 'al-buruj', 'alburuj']],
+    [86, 'At-Tariq', ['at tariq', 'at-tariq', 'attariq']],
+    [87, 'Al-Ala', ['al ala', 'al-ala', 'ala']],
+    [88, 'Al-Ghasyiyah', ['al ghasyiyah', 'al-ghasyiyah', 'al ghasiyah', 'al-ghasiyah', 'ghasyiyah']]
+  ],
+  3: [
+    [67, 'Al-Mulk', ['al mulk', 'al-mulk', 'almulk']],
+    [68, 'Al-Qalam', ['al qalam', 'al-qalam', 'alqalam']],
+    [69, 'Al-Haqqah', ['al haqqah', 'al-haqqah', 'alhaqqah']],
+    [70, 'Al-Maarij', ['al maarij', 'al-maarij', 'maarij']],
+    [71, 'Nuh', ['nuh']],
+    [72, 'Al-Jinn', ['al jinn', 'al-jinn', 'aljinn']],
+    [73, 'Al-Muzzammil', ['al muzzammil', 'al-muzzammil', 'muzzammil']],
+    [74, 'Al-Muddassir', ['al muddassir', 'al-muddassir', 'muddassir']],
+    [75, 'Al-Qiyamah', ['al qiyamah', 'al-qiyamah', 'qiyamah']],
+    [76, 'Al-Insan', ['al insan', 'al-insan', 'al insan']],
+    [77, 'Al-Mursalat', ['al mursalat', 'al-mursalat', 'almursalat']]
+  ],
+  4: [
+    [58, 'Al-Mujadilah', ['al mujadilah', 'al-mujadilah', 'mujadilah']],
+    [59, 'Al-Hasyr', ['al hasyr', 'al-hasyr', 'al hashr', 'al-hashr']],
+    [60, 'Al-Mumtahanah', ['al mumtahanah', 'al-mumtahanah', 'mumtahanah']],
+    [61, 'As-Saff', ['as saff', 'as-saff', 'assaff']],
+    [62, 'Al-Jumuah', ['al jumuah', 'al-jumuah', 'al jumu ah']],
+    [63, 'Al-Munafiqun', ['al munafiqun', 'al-munafiqun', 'munafiqun']],
+    [64, 'At-Taghabun', ['at taghabun', 'at-taghabun', 'taghabun']],
+    [65, 'At-Talaq', ['at talaq', 'at-talaq', 'attalaq']],
+    [66, 'At-Tahrim', ['at tahrim', 'at-tahrim', 'attahrim']]
+  ],
+  5: [
+    [51, 'Adz-Dzariyat', ['adz dzariyat', 'adz-dzariyat', 'az zariyat', 'az-zariyat', 'dzariyat']],
+    [52, 'At-Tur', ['at tur', 'at-tur', 'attur']],
+    [53, 'An-Najm', ['an najm', 'an-najm', 'annajm']],
+    [54, 'Al-Qamar', ['al qamar', 'al-qamar', 'alqamar']],
+    [55, 'Ar-Rahman', ['ar rahman', 'ar-rahman', 'arrahman']],
+    [56, 'Al-Waqiah', ['al waqiah', 'al-waqiah', 'al waqiah', 'waqiah']],
+    [57, 'Al-Hadid', ['al hadid', 'al-hadid', 'alhadid']]
+  ]
+};
 
-  renderQuarterlyPreview(firstClassId);
+function ambilTingkatKelas(namaKelas) {
+  const nama = String(namaKelas || '').trim();
+  const cocok = nama.match(/(?:kelas\s*)?([1-6])(?:\D|$)/i);
+  return cocok ? Number(cocok[1]) : null;
 }
+
+function cocokNamaSurah(teks, alias) {
+  const normalizedText = ` ${normalisasiTeksHafalan(teks)} `;
+  const normalizedAlias = normalisasiTeksHafalan(alias);
+
+  if (!normalizedAlias) return false;
+
+  // Alias pendek harus cocok sebagai kata utuh.
+  return normalizedText.includes(` ${normalizedAlias} `);
+}
+
+function surahTercapaiDalamTeks(teks, aliases) {
+  const normalizedText = normalisasiTeksHafalan(teks);
+
+  for (const alias of aliases) {
+    if (!cocokNamaSurah(normalizedText, alias)) continue;
+
+    // Periksa kalimat di sekitar nama surah agar ungkapan
+    // "belum hafal An-Nas" tidak dihitung sebagai pencapaian.
+    const pos = normalizedText.indexOf(normalisasiTeksHafalan(alias));
+    const sekitar = normalizedText.slice(
+      Math.max(0, pos - 35),
+      Math.min(normalizedText.length, pos + alias.length + 35)
+    );
+
+    if (/\b(belum|belom|belum hafal|belum lancar|belum selesai|belum tercapai|baru mulai|akan menghafal|belum tuntas)\b/.test(sekitar)) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
+  const tingkat = ambilTingkatKelas(cls?.nama);
+
+  if (!tingkat) {
+    return {
+      persentase: null,
+      keterangan: 'Tingkat kelas belum dikenali',
+      tercapai: 0,
+      target: 0
+    };
+  }
+
+  // Kelas 6 menggunakan target hafalan kelas 5.
+  const tingkatTarget = tingkat === 6 ? 5 : tingkat;
+  const targetSurah = TARGET_SURAH_KELAS[tingkatTarget] || [];
+
+  const journals = (cache.journals || []).filter(j => {
+    if (j.student_id !== student.id || !j.month_start) return false;
+
+    const jm = String(j.month_start).slice(0, 7);
+
+    return (periodMonths || []).some(m =>
+      jm === `${m.year}-${String(m.month).padStart(2, '0')}`
+    );
+  });
+
+  const teksHafalan = journals
+    .map(j => String(j.hafalan || ''))
+    .filter(Boolean);
+
+  const teksGabungan = teksHafalan.join(' ; ');
+
+  const surahTercapai = targetSurah.filter(([, , aliases]) =>
+    surahTercapaiDalamTeks(teksGabungan, aliases)
+  );
+
+  const jumlahTarget = targetSurah.length;
+  const jumlahTercapai = surahTercapai.length;
+  const persentase = jumlahTarget
+    ? Math.round((jumlahTercapai / jumlahTarget) * 10000) / 100
+    : null;
+
+  return {
+    persentase,
+    keterangan: persentase === 100
+      ? 'Target tercapai'
+      : 'Target belum tercapai',
+    tercapai: jumlahTercapai,
+    target: jumlahTarget,
+    surahTercapai: surahTercapai.map(s => s[1])
+  };
+}
+
+
 function closeQuarterlyPreview(){
   go('report');
-}
-function renderQuarterlyPreview(classId) {
-  const container = $('quarterlyPreviewContent');
-  if (!container) return;
-
-  const reports = cache.reports.filter(
-    r =>
-      r.class_id === classId &&
-      (
-        current.role === 'koordinator' ||
-        r.teacher_id === current.id
-      )
-  );
-
-  const cls = cache.classes.find(c => c.id === classId);
-
-  if (!reports.length) {
-    container.innerHTML = `
-      <div class="p-6 text-center text-slate-500 bg-slate-50 rounded-xl">
-        Belum ada data rekap 3 bulan untuk
-        <b>${esc(cls?.nama || '-')}</b>.
-      </div>
-    `;
-    return;
-  }
-
-  const rows = reports
-    .slice()
-    .sort((a, b) => {
-      const studentA = cache.students.find(
-        s => s.id === a.student_id
-      );
-      const studentB = cache.students.find(
-        s => s.id === b.student_id
-      );
-
-      const absenA = Number(studentA?.nomor_absen ?? 999999);
-      const absenB = Number(studentB?.nomor_absen ?? 999999);
-
-      return absenA - absenB;
-    })
-    .map(r => {
-      // Hubungkan setiap rekap dengan data muridnya.
-      const student = cache.students.find(
-        s => s.id === r.student_id
-      );
-
-      const j1 = cache.journals.find(
-        j => j.id === r.month1_journal_id
-      );
-      const j2 = cache.journals.find(
-        j => j.id === r.month2_journal_id
-      );
-      const j3 = cache.journals.find(
-        j => j.id === r.month3_journal_id
-      );
-
-      return `
-        <tr class="border-t hover:bg-slate-50">
-          <td class="p-3">
-            ${esc(student?.nomor_absen ?? '-')}
-          </td>
-          <td class="p-3">
-            ${esc(student?.nama || '-')}
-          </td>
-          <td class="p-3">
-            ${esc(student?.nisn || student?.nis || '-')}
-          </td>
-          <td class="p-3">
-            ${esc(r.period_start || '-')}
-          </td>
-          <td class="p-3">
-            ${esc(j1?.hafalan || '-')}
-          </td>
-          <td class="p-3">
-            ${esc(j2?.hafalan || '-')}
-          </td>
-          <td class="p-3">
-            ${esc(j3?.hafalan || '-')}
-          </td>
-          <td class="p-3 text-center font-semibold">
-            ${r.persentase ?? 0}%
-          </td>
-          <td class="p-3">
-            ${esc(r.catatan || '-')}
-          </td>
-        </tr>
-      `;
-    })
-    .join('');
-
-  container.innerHTML = `
-    <div class="mb-3">
-      <h3 class="font-bold text-base">
-        ${esc(cls?.nama || '-')}
-      </h3>
-      <p class="text-xs text-slate-500">
-        ${reports.length} data rekap
-      </p>
-    </div>
-
-    <div class="overflow-x-auto border rounded-xl">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="bg-slate-50">
-            <th class="p-3 text-left">No. Absen</th>
-            <th class="p-3 text-left">Nama Murid</th>
-            <th class="p-3 text-left">NIS/NISN</th>
-            <th class="p-3 text-left">Periode</th>
-            <th class="p-3 text-left">Bulan 1</th>
-            <th class="p-3 text-left">Bulan 2</th>
-            <th class="p-3 text-left">Bulan 3</th>
-            <th class="p-3 text-center">Persentase</th>
-            <th class="p-3 text-left">Catatan</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    </div>
-  `;
 }
 
 
