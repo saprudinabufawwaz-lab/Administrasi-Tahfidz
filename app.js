@@ -12100,159 +12100,269 @@ async function importJournalExcel() {
   }
 }
 
-function openJournal(id=''){
+const DAFTAR_SURAH_QURAN = [
+  [1, "Al-Fatihah"],
+  [2, "Al-Baqarah"],
+  [3, "Ali 'Imran"],
+  [4, "An-Nisa"],
+  [5, "Al-Ma'idah"],
+  [6, "Al-An'am"],
+  [7, "Al-A'raf"],
+  [8, "Al-Anfal"],
+  [9, "At-Taubah"],
+  [10, "Yunus"],
+  [11, "Hud"],
+  [12, "Yusuf"],
+  [13, "Ar-Ra'd"],
+  [14, "Ibrahim"],
+  [15, "Al-Hijr"],
+  [16, "An-Nahl"],
+  [17, "Al-Isra"],
+  [18, "Al-Kahf"],
+  [19, "Maryam"],
+  [20, "Ta-Ha"],
+  [21, "Al-Anbiya"],
+  [22, "Al-Hajj"],
+  [23, "Al-Mu'minun"],
+  [24, "An-Nur"],
+  [25, "Al-Furqan"],
+  [26, "Asy-Syu'ara"],
+  [27, "An-Naml"],
+  [28, "Al-Qasas"],
+  [29, "Al-Ankabut"],
+  [30, "Ar-Rum"],
+  [31, "Luqman"],
+  [32, "As-Sajdah"],
+  [33, "Al-Ahzab"],
+  [34, "Saba"],
+  [35, "Fatir"],
+  [36, "Yasin"],
+  [37, "As-Saffat"],
+  [38, "Sad"],
+  [39, "Az-Zumar"],
+  [40, "Ghafir"],
+  [41, "Fussilat"],
+  [42, "Asy-Syura"],
+  [43, "Az-Zukhruf"],
+  [44, "Ad-Dukhan"],
+  [45, "Al-Jasiyah"],
+  [46, "Al-Ahqaf"],
+  [47, "Muhammad"],
+  [48, "Al-Fath"],
+  [49, "Al-Hujurat"],
+  [50, "Qaf"],
+  [51, "Adz-Dzariyat"],
+  [52, "At-Tur"],
+  [53, "An-Najm"],
+  [54, "Al-Qamar"],
+  [55, "Ar-Rahman"],
+  [56, "Al-Waqi'ah"],
+  [57, "Al-Hadid"],
+  [58, "Al-Mujadilah"],
+  [59, "Al-Hasyr"],
+  [60, "Al-Mumtahanah"],
+  [61, "As-Saff"],
+  [62, "Al-Jumu'ah"],
+  [63, "Al-Munafiqun"],
+  [64, "At-Taghabun"],
+  [65, "At-Talaq"],
+  [66, "At-Tahrim"],
+  [67, "Al-Mulk"],
+  [68, "Al-Qalam"],
+  [69, "Al-Haqqah"],
+  [70, "Al-Ma'arij"],
+  [71, "Nuh"],
+  [72, "Al-Jinn"],
+  [73, "Al-Muzzammil"],
+  [74, "Al-Muddassir"],
+  [75, "Al-Qiyamah"],
+  [76, "Al-Insan"],
+  [77, "Al-Mursalat"],
+  [78, "An-Naba"],
+  [79, "An-Nazi'at"],
+  [80, "'Abasa"],
+  [81, "At-Takwir"],
+  [82, "Al-Infitar"],
+  [83, "Al-Mutaffifin"],
+  [84, "Al-Insyiqaq"],
+  [85, "Al-Buruj"],
+  [86, "At-Tariq"],
+  [87, "Al-A'la"],
+  [88, "Al-Ghasyiyah"],
+  [89, "Al-Fajr"],
+  [90, "Al-Balad"],
+  [91, "Asy-Syams"],
+  [92, "Al-Lail"],
+  [93, "Ad-Duha"],
+  [94, "Al-Insyirah"],
+  [95, "At-Tin"],
+  [96, "Al-Alaq"],
+  [97, "Al-Qadr"],
+  [98, "Al-Bayyinah"],
+  [99, "Az-Zalzalah"],
+  [100, "Al-Adiyat"],
+  [101, "Al-Qari'ah"],
+  [102, "At-Takatsur"],
+  [103, "Al-'Asr"],
+  [104, "Al-Humazah"],
+  [105, "Al-Fil"],
+  [106, "Quraisy"],
+  [107, "Al-Ma'un"],
+  [108, "Al-Kawthar"],
+  [109, "Al-Kafirun"],
+  [110, "An-Nasr"],
+  [111, "Al-Masad"],
+  [112, "Al-Ikhlas"],
+  [113, "Al-Falaq"],
+  [114, "An-Naas"]
+];
 
-  const record = id
-    ? cache.journals.find(x => x.id === id)
-    : null;
+function nomorTargetSurahKelas(tingkat) {
+  const target = tingkat === 6
+    ? [1, 2, 3, 4, 5].flatMap(k => TARGET_SURAH_KELAS[k] || [])
+    : (TARGET_SURAH_KELAS[tingkat] || []);
+  return target.map(item => Number(item[0])).filter(Number.isFinite);
+}
 
-  if(id && !record){
-    return toast('Data jurnal tidak ditemukan','err');
+function parseNomorSurahJurnal(teks) {
+  const text = String(teks || '');
+  const m = text.match(/\bSurah\s*#?\s*(\d{1,3})\b/i);
+  if (m) {
+    const n = Number(m[1]);
+    if (n >= 1 && n <= 114) return n;
   }
+  const normalized = normalisasiTeksHafalan(text);
+  const found = DAFTAR_SURAH_QURAN.find(([nomor, nama]) => {
+    const alias = normalisasiTeksHafalan(nama);
+    return alias && (` ${normalized} `).includes(` ${alias} `);
+  });
+  return found ? found[0] : null;
+}
+
+function daftarPilihanSurahJurnal(studentId, selectedNumber = null) {
+  const student = cache.students.find(s => s.id === studentId);
+  const kelas = cache.classes.find(c => c.id === student?.class_id);
+  const tingkat = ambilTingkatKelas(kelas?.nama);
+  const targetNumbers = new Set(nomorTargetSurahKelas(tingkat));
+
+  return `
+    <option value="">Pilih surah</option>
+    ${DAFTAR_SURAH_QURAN.map(([nomor, nama]) => `
+      <option value="${nomor}" ${Number(selectedNumber) === nomor ? 'selected' : ''}>
+        ${nomor}. ${esc(nama)}${targetNumbers.has(nomor) ? ' — Target kelas' : ''}
+      </option>
+    `).join('')}
+  `;
+}
+
+function openJournal(id=''){
+  const record = id ? cache.journals.find(x => x.id === id) : null;
+  if (id && !record) return toast('Data jurnal tidak ditemukan','err');
 
   const hs = current.role === 'koordinator'
     ? cache.halaqoh
     : cache.teacherHalaqoh
         .filter(x => x.teacher_id === current.id)
-        .map(x =>
-          cache.halaqoh.find(h => h.id === x.halaqoh_id)
-        )
+        .map(x => cache.halaqoh.find(h => h.id === x.halaqoh_id))
         .filter(Boolean);
 
-  // Bulan otomatis = bulan sekarang
   const now = new Date();
-
-  const currentMonth =
-    now.getFullYear() + '-' +
+  const currentMonth = now.getFullYear() + '-' +
     String(now.getMonth() + 1).padStart(2,'0');
+  const oldSurahNumber = parseNomorSurahJurnal(record?.hafalan || '');
 
   $('modalBox').innerHTML = `
-
-    <h3 class="font-bold text-lg mb-4">
-      ${record ? 'Edit Jurnal Bulanan' : 'Jurnal Bulanan'}
-    </h3>
-
-    <form
-      onsubmit="saveJournal(event,'${id}')"
-      class="space-y-4">
-
-      ${select(
-        'jh',
-        'Halaqoh',
-        hs,
-        'Pilih halaqoh'
-      )}
-
+    <h3 class="font-bold text-lg mb-4">${record ? 'Edit Jurnal Bulanan' : 'Jurnal Bulanan'}</h3>
+    <form onsubmit="saveJournal(event,'${id}')" class="space-y-4">
+      ${select('jh','Halaqoh',hs,'Pilih halaqoh')}
       <label class="block text-sm font-medium">
-
         Bulan
-
-        <input
-          id="jm"
-          type="month"
-          required
-          value="${record?.month_start
-            ? String(record.month_start).slice(0,7)
-            : currentMonth}"
+        <input id="jm" type="month" required
+          value="${record?.month_start ? String(record.month_start).slice(0,7) : currentMonth}"
           class="mt-1 w-full p-2.5 border rounded-lg">
-
       </label>
-
-      ${select(
-        'js',
-        'Nama Murid',
-        [],
-        'Pilih halaqoh terlebih dahulu'
-      )}
-
-      <input
-        id="jhaf"
-        required
-        placeholder="Contoh: 3 halaman / Juz 30"
-        class="w-full p-2.5 border rounded-lg">
-
-      <textarea
-        id="jcat"
-        placeholder="Catatan"
-        class="w-full p-2.5 border rounded-lg"></textarea>
-
+      ${select('js','Nama Murid',[],'Pilih halaqoh terlebih dahulu')}
+      <label class="block text-sm font-medium">
+        Surah yang dihafal
+        <select id="jhaf" required class="mt-1 w-full p-2.5 border rounded-lg">
+          <option value="">Pilih murid terlebih dahulu</option>
+        </select>
+        <span id="jtargetInfo" class="block text-xs text-slate-500 mt-1">
+          Semua 114 surah tersedia. Surah target kelas diberi penanda.
+        </span>
+      </label>
+      <label class="block text-sm font-medium">
+        Ayat (opsional)
+        <input id="jayat" placeholder="Contoh: 1–10 atau 1–akhir"
+          class="mt-1 w-full p-2.5 border rounded-lg">
+      </label>
+      <textarea id="jcat" placeholder="Catatan" class="w-full p-2.5 border rounded-lg"></textarea>
       <div class="flex justify-end gap-2 pt-2">
-
-        <button
-          type="button"
-          onclick="closeModal()"
-          class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg">
-          Batal
-        </button>
-
-        <button
-          type="submit"
-          class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg">Batal</button>
+        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
           ${record ? 'Simpan Perubahan' : 'Simpan'}
         </button>
-
       </div>
-
     </form>
   `;
 
-  $('jh').onchange = () => {
-    fillStudents('jh','js');
-  };
+  $('jh').onchange = () => fillStudents('jh','js');
+  $('js').onchange = () => isiPilihanSurahJurnal('js','jhaf');
 
-  if(record){
-
+  if (record) {
     $('jh').value = record.halaqoh_id || '';
-
     fillStudents('jh','js');
-
     $('js').value = record.student_id || '';
-
-    $('jhaf').value =
-      record.hafalan || '';
-
-    $('jcat').value =
-      record.catatan || '';
-
+    isiPilihanSurahJurnal('js','jhaf',oldSurahNumber);
+    const ayat = String(record.hafalan || '').match(/\bayat\s*:?\s*(.+)$/i);
+    $('jayat').value = ayat ? ayat[1].trim() : '';
+    $('jcat').value = record.catatan || '';
   }
-
   openModal();
 }
 
+function isiPilihanSurahJurnal(studentSelectId, surahSelectId, selectedNumber = null) {
+  const studentId = $(studentSelectId)?.value;
+  const selectEl = $(surahSelectId);
+  if (!selectEl) return;
+  if (!studentId) {
+    selectEl.innerHTML = '<option value="">Pilih murid terlebih dahulu</option>';
+    const info = $('jtargetInfo');
+    if (info) info.textContent = 'Semua 114 surah tersedia. Surah target kelas diberi penanda.';
+    return;
+  }
+  selectEl.innerHTML = daftarPilihanSurahJurnal(studentId, selectedNumber);
+  const student = cache.students.find(s => s.id === studentId);
+  const cls = cache.classes.find(c => c.id === student?.class_id);
+  const tingkat = ambilTingkatKelas(cls?.nama);
+  const info = $('jtargetInfo');
+  if (info) {
+    info.textContent = tingkat
+      ? `Kelas ${tingkat}: pilihan semua surah tersedia. Surah target kelas ditandai; hafalan di luar target tetap dapat dicatat.`
+      : 'Pilihan semua surah tersedia. Tingkat kelas belum dikenali.';
+  }
+}
+
 function fillStudents(hid,sid){
-
   const h = $(hid).value;
-
   const selectEl = $(sid);
-
-  if(!h){
-
-    selectEl.innerHTML =
-      '<option value="">Pilih halaqoh terlebih dahulu</option>';
-
+  if (!h) {
+    selectEl.innerHTML = '<option value="">Pilih halaqoh terlebih dahulu</option>';
+    isiPilihanSurahJurnal(sid,'jhaf');
     return;
   }
 
-  const opts = cache.students.filter(
-    s =>
-      s.halaqoh_id === h &&
-      s.aktif
+  const opts = cache.students.filter(s =>
+    s.halaqoh_id === h && s.aktif !== false
   );
-
-  selectEl.innerHTML =
-    '<option value="">Pilih murid</option>' +
-
+  selectEl.innerHTML = '<option value="">Pilih murid</option>' +
     opts.map(s => `
       <option value="${s.id}">
-        ${esc(s.nama)} — ${esc(
-          cache.classes.find(
-            c => c.id === s.class_id
-          )?.nama || ''
-        )}
+        ${esc(s.nama)} — ${esc(cache.classes.find(c => c.id === s.class_id)?.nama || '')}
       </option>
     `).join('');
+  isiPilihanSurahJurnal(sid,'jhaf');
 }
-
 
 async function saveJournal(e,id=''){
 
@@ -12264,7 +12374,12 @@ async function saveJournal(e,id=''){
 
   const month = $('jm').value;
 
-  const hafalan = $('jhaf').value.trim();
+  const nomorSurah = Number($('jhaf').value);
+  const dataSurah = DAFTAR_SURAH_QURAN.find(x => x[0] === nomorSurah);
+  const ayat = $('jayat')?.value.trim() || '';
+  const hafalan = dataSurah
+    ? `Surah ${nomorSurah} - ${dataSurah[1]}${ayat ? `; ayat ${ayat}` : ''}`
+    : '';
 
   const catatan = $('jcat').value.trim();
 
@@ -12289,11 +12404,8 @@ async function saveJournal(e,id=''){
     );
   }
 
-  if(!hafalan){
-    return toast(
-      'Hafalan wajib diisi',
-      'err'
-    );
+  if(!dataSurah){
+    return toast('Silakan pilih surah yang dihafal','err');
   }
 
   const month_start = month + '-01';
@@ -13090,9 +13202,10 @@ function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
     };
   }
 
-  // Kelas 6 menggunakan target hafalan kelas 5.
-  const tingkatTarget = tingkat === 6 ? 5 : tingkat;
-  const targetSurah = TARGET_SURAH_KELAS[tingkatTarget] || [];
+  // Kelas 6 mencakup gabungan target kelas 1–5 (Juz 30 sampai Juz 27).
+  const targetSurah = tingkat === 6
+    ? [1, 2, 3, 4, 5].flatMap(k => TARGET_SURAH_KELAS[k] || [])
+    : (TARGET_SURAH_KELAS[tingkat] || []);
 
   const journals = (cache.journals || []).filter(j => {
     if (j.student_id !== student.id || !j.month_start) return false;
@@ -13110,14 +13223,29 @@ function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
 
   const teksGabungan = teksHafalan.join(' ; ');
 
-  const surahTercapai = targetSurah.filter(([, , aliases]) =>
+  const surahTercapai = targetSurah.filter(([nomor, , aliases]) =>
+    teksHafalan.some(teks => parseNomorSurahJurnal(teks) === Number(nomor)) ||
     surahTercapaiDalamTeks(teksGabungan, aliases)
   );
 
   const jumlahTarget = targetSurah.length;
-  const jumlahTercapai = surahTercapai.length;
+  let jumlahTercapai = surahTercapai.length;
+
+  // Jika jurnal mencatat surah bernomor lebih kecil daripada awal target kelas,
+  // berarti murid sudah melanjutkan ke bagian Al-Qur'an di luar target kelas.
+  // Dalam aturan sekolah, kondisi ini dianggap telah lulus target kelas.
+  const nomorTarget = targetSurah.map(x => Number(x[0])).filter(Number.isFinite);
+  const nomorAwalTarget = nomorTarget.length ? Math.min(...nomorTarget) : null;
+  const nomorSurahDiJurnal = teksHafalan
+    .map(parseNomorSurahJurnal)
+    .filter(n => Number.isFinite(n));
+  const sudahMelebihiTarget = nomorAwalTarget !== null &&
+    nomorSurahDiJurnal.some(n => n < nomorAwalTarget);
+
+  if (sudahMelebihiTarget) jumlahTercapai = jumlahTarget;
+
   const persentase = jumlahTarget
-    ? Math.round((jumlahTercapai / jumlahTarget) * 10000) / 100
+    ? Math.min(100, Math.round((jumlahTercapai / jumlahTarget) * 10000) / 100)
     : null;
 
   return {
@@ -13127,7 +13255,8 @@ function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
       : 'Target belum tercapai',
     tercapai: jumlahTercapai,
     target: jumlahTarget,
-    surahTercapai: surahTercapai.map(s => s[1])
+    surahTercapai: surahTercapai.map(s => s[1]),
+    sudahMelebihiTarget
   };
 }
 
