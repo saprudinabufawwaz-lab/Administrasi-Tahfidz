@@ -13280,30 +13280,44 @@ function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
     const progres = Math.min(...nomorSurah);
     tercapai = Math.max(0, Math.min(11, 88 - progres + 1));
 
-  } else if (tingkat === 3) {
+    } else if (tingkat === 3) {
     // Kelas 3: Al-Mulk (67) sampai Al-Mursalat (77).
-    // Surah nomor 66 atau lebih kecil berarti target sudah terlampaui.
-    const progres = Math.max(...nomorSurah);
-    tercapai = progres < 67
-      ? 11
-      : Math.max(0, Math.min(11, progres - 67 + 1));
+    // Juz 30 (nomor surah 78–114) belum mencapai target.
+    const progres = Math.min(...nomorSurah);
+
+    tercapai = progres > 77
+      ? 0
+      : progres < 67
+        ? 11
+        : progres - 67 + 1;
+
+    tercapai = Math.max(0, Math.min(11, tercapai));
 
   } else if (tingkat === 4) {
     // Kelas 4: Al-Mujadilah (58) sampai At-Tahrim (66).
-    // Surah nomor 57 atau lebih kecil berarti target sudah terlampaui.
-    const progres = Math.max(...nomorSurah);
-    tercapai = progres < 58
-      ? 9
-      : Math.max(0, Math.min(9, progres - 58 + 1));
+    // Juz 29 dan 30 (nomor surah 67–114) belum mencapai target.
+    const progres = Math.min(...nomorSurah);
+
+    tercapai = progres > 66
+      ? 0
+      : progres < 58
+        ? 9
+        : progres - 58 + 1;
+
+    tercapai = Math.max(0, Math.min(9, tercapai));
 
   } else if (tingkat === 5) {
     // Kelas 5: Adz-Dzariyat (51) sampai Al-Hadid (57).
-    // Surah nomor 50 atau lebih kecil berarti target sudah terlampaui.
-    const progres = Math.max(...nomorSurah);
-    tercapai = progres < 51
-      ? 7
-      : Math.max(0, Math.min(7, progres - 51 + 1));
+    // Juz 28, 29, dan 30 (nomor surah 58–114) belum mencapai target.
+    const progres = Math.min(...nomorSurah);
 
+    tercapai = progres > 57
+      ? 0
+      : progres < 51
+        ? 7
+        : progres - 51 + 1;
+
+    tercapai = Math.max(0, Math.min(7, tercapai));
   } else if (tingkat === 6) {
     // Kelas 6: An-Naas (114) sampai Adz-Dzariyat (51).
     // Juz 30, 29, dan 28 tetap memperoleh persentase progres sebagian.
