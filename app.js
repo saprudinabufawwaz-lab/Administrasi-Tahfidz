@@ -12688,15 +12688,34 @@ function report() {
     })[ch]
   );
 
-  const monthCell = journals => {
-    const values = journals
-      .map(j => String(j.hafalan || '').trim())
-      .filter(Boolean);
+const monthCell = journals => {
+  if (!journals.length) {
+    return '<span class="text-slate-400">—</span>';
+  }
 
-    return values.length
-      ? escapeHtml([...new Set(values)].join('; '))
-      : '<span class="text-slate-400">—</span>';
-  };
+  return journals.map(j => {
+    const hafalan = escapeHtml(j.hafalan || '—');
+
+    const editButton = isCoordinator
+      ? `
+        <button
+          type="button"
+          onclick="openQuarterlyJournalEdit('${escapeHtml(j.id)}')"
+          class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-blue-600 hover:text-blue-800">
+          <i class="fa-solid fa-pen-to-square"></i>
+          Edit
+        </button>
+      `
+      : '';
+
+    return `
+      <div class="mb-2 last:mb-0">
+        <div>${hafalan}</div>
+        ${editButton}
+      </div>
+    `;
+  }).join('');
+};
 
   const classOptions = classes.map(c => `
     <option value="${escapeHtml(c.id)}"
@@ -12847,6 +12866,151 @@ function report() {
   `;
 }
 
+function openQuarterlyJournalEdit(id) {
+  // Hanya koordinator yang boleh mengedit dari halaman rekap.
+  if (current.role !== 'koordinator') {
+    return toast('Akses hanya untuk Koordinator', 'err');
+  }
+
+  const record = (cache.journals || []).find(j => j.id === id);
+
+  if (!record) {
+    return toast('Jurnal tidak ditemukan. Muat ulang data terlebih dahulu.', 'err');
+  }
+
+  const student = (cache.students || []).find(
+    s => s.id === record.student_id
+  );
+
+  // Format hafalan: Surah 3 - Ali 'Imran; ayat 1-5
+  const hafalan = String(record.hafalan || '');
+
+  const match = hafalan.match(
+    /Surah\s+(\d+)\s*-\s*([^;]+)(?:;\s*ayat\s*(.*))?/i
+  );
+
+  const nomorSurah = match ? Number(match[1]) : '';
+  const ayat = match ? (match[3] || '') : '';
+
+  const pilihanSurah = DAFTAR_SURAH_QURAN.map(s => `
+    <option value="${s[0]}" ${Number(s[0]) === nomorSurah ? 'selected' : ''}>
+      ${s[0]}. ${String(s[1]).replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+    </option>
+  `).join('');
+
+  const escapeValue = value => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  $('modalBox').innerHTML = `
+    <h3 class="text-lg font-bold mb-1">Edit Jurnal Rekap</h3>
+
+    <p class="text-sm text-slate-500 mb-4">
+      Murid: ${escapeValue(student?.nama || 'Tidak diketahui')}
+    </p>
+
+    <form onsubmit="saveQuarterlyJournalEdit(event, '${escapeValue(id)}')"
+          class="space-y-4">
+
+      <label class="block text-sm font-medium">
+        Surah
+        <select id="qjeSurah"
+                required
+                class="mt-1 w-full p-2.5 border rounded-lg">
+          <option value="">Pilih surah</option>
+          ${pilihanSurah}
+        </select>
+      </label>
+
+      <label class="block text-sm font-medium">
+        Rentang ayat
+        <input id="qjeAyat"
+               value="${escapeValue(ayat)}"
+               placeholder="Contoh: 1-5 atau 10-20"
+               class="mt-1 w-full p-2.5 border rounded-lg">
+      </label>
+
+      <label class="block text-sm font-medium">
+        Catatan
+        <textarea id="qjeCatatan"
+                  rows="3"
+                  class="mt-1 w-full p-2.5 border rounded-lg"
+                  placeholder="Catatan guru">${escapeValue(record.catatan || '')}</textarea>
+      </label>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button"
+                onclick="closeModal()"
+                class="px-4 py-2 bg-slate-100 rounded-lg">
+          Batal
+        </button>
+
+        <button type="submit"
+                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
+          Simpan Perubahan
+        </button>
+      </div>
+    </form>
+  `;
+
+  openModal();
+}
+
+
+async function saveQuarterlyJournalEdit(event, id) {
+  event.preventDefault();
+
+  if (current.role !== 'koordinator') {
+    return toast('Akses hanya untuk Koordinator', 'err');
+  }
+
+  const record = (cache.journals || []).find(j => j.id === id);
+
+  if (!record) {
+    return toast('Jurnal tidak ditemukan', 'err');
+  }
+
+  const nomorSurah = Number($('qjeSurah').value);
+  const dataSurah = DAFTAR_SURAH_QURAN.find(
+    s => Number(s[0]) === nomorSurah
+  );
+
+  if (!dataSurah) {
+    return toast('Silakan pilih surah yang benar', 'err');
+  }
+
+  const ayat = $('qjeAyat').value.trim();
+  const catatan = $('qjeCatatan').value.trim();
+
+  const hafalan =
+    `Surah ${nomorSurah} - ${dataSurah[1]}` +
+    (ayat ? `; ayat ${ayat}` : '');
+
+  const { error } = await sb
+    .from('monthly_journals')
+    .update({
+      hafalan,
+      catatan
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error(error);
+    return toast('Gagal menyimpan: ' + error.message, 'err');
+  }
+
+  closeModal();
+
+  await loadAll();
+
+  // Pertahankan periode dan filter kelas yang sedang dipilih.
+  go('report');
+
+  toast('Jurnal berhasil diperbaiki');
+}
 // Fungsi lama dipertahankan sebagai pengarah ke halaman rekap otomatis.
 function previewQuarterlyReports() {
   go('report');
