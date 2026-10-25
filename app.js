@@ -13202,11 +13202,20 @@ function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
     };
   }
 
-  // Ambil target berdasarkan kelas.
-  // Kelas 1 dan 2 dipertahankan menggunakan logika lama.
   const targetSurah = tingkat === 6
     ? [1, 2, 3, 4, 5].flatMap(k => TARGET_SURAH_KELAS[k] || [])
     : (TARGET_SURAH_KELAS[tingkat] || []);
+
+  const jumlahTarget = targetSurah.length;
+
+  if (!jumlahTarget) {
+    return {
+      persentase: 0,
+      keterangan: 'Target belum tercapai',
+      tercapai: 0,
+      target: 0
+    };
+  }
 
   const journals = (cache.journals || []).filter(j => {
     if (j.student_id !== student.id || !j.month_start) return false;
@@ -13222,66 +13231,77 @@ function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
     .map(j => String(j.hafalan || ''))
     .filter(Boolean);
 
-  const teksGabungan = teksHafalan.join(' ; ');
+  const nomorSurah = [...new Set(
+    teksHafalan
+      .map(parseNomorSurahJurnal)
+      .filter(n => Number.isInteger(n) && n >= 1 && n <= 114)
+  )];
 
-  const jumlahTarget = targetSurah.length;
-
-  if (!jumlahTarget) {
-    return {
-      persentase: 0,
-      keterangan: 'Target belum tercapai',
-      tercapai: 0,
-      target: 0
-    };
-  }
-
-  /*
-   * KELAS 1 DAN 2
-   * Pertahankan cara penghitungan lama:
-   * setiap surah target yang ditemukan dihitung satu kali.
-   */
+  // Kelas 1–2: pertahankan penghitungan lama.
   if (tingkat === 1 || tingkat === 2) {
+    const teksGabungan = teksHafalan.join(' ; ');
+
     const surahTercapai = targetSurah.filter(([, , aliases]) =>
       surahTercapaiDalamTeks(teksGabungan, aliases)
     );
 
-    const jumlahTercapai = surahTercapai.length;
+    const tercapai = surahTercapai.length;
     const persentase = Math.round(
-      (jumlahTercapai / jumlahTarget) * 10000
+      (tercapai / jumlahTarget) * 10000
     ) / 100;
 
     return {
       persentase,
-      keterangan: persentase === 100
+      keterangan: persentase >= 100
         ? 'Target tercapai'
         : 'Target belum tercapai',
-      tercapai: jumlahTercapai,
+      tercapai,
       target: jumlahTarget,
       surahTercapai: surahTercapai.map(s => s[1])
     };
   }
 
-  /*
-   * KELAS 3–6
-   * Hitung hanya surah yang termasuk target kelas.
-   * Surah di luar target tidak dihitung.
-   * Jurnal surah yang sama tidak dihitung berulang.
-   */
-  const surahTercapai = targetSurah.filter(([nomor, , aliases]) => {
-    return teksHafalan.some(teks => {
-      // Utamakan nomor surah jika jurnal menyimpannya sebagai nomor.
-      const nomorJurnal = parseNomorSurahJurnal(teks);
+  // Kelas 3–6: hitung berdasarkan urutan target.
+  const nomorTarget = targetSurah.map(s => Number(s[0]));
+  const posisiTarget = new Map(
+    nomorTarget.map((nomor, index) => [nomor, index])
+  );
 
-      if (nomorJurnal !== null && nomorJurnal !== undefined) {
-        return Number(nomorJurnal) === Number(nomor);
-      }
-
-      // Jika jurnal lama menggunakan nama surah, periksa nama dan alias.
-      return surahTercapaiDalamTeks(teks, aliases);
-    });
+  const surahTargetTercapai = targetSurah.filter(([nomor, , aliases]) => {
+    return nomorSurah.includes(Number(nomor)) ||
+      teksHafalan.some(teks =>
+        surahTercapaiDalamTeks(teks, aliases)
+      );
   });
 
-  const jumlahTercapai = surahTercapai.length;
+  // Jika sudah mencapai target kelas berikutnya, target kelas sebelumnya
+  // dianggap tuntas. Kelas 3 selesai jika sudah mencapai Juz 28 atau lebih jauh.
+  const nomorSurahTerkecil = nomorSurah.length
+    ? Math.min(...nomorSurah)
+    : null;
+
+  let jumlahTercapai = surahTargetTercapai.length;
+
+  if (tingkat === 3 && nomorSurahTerkecil !== null &&
+      nomorSurahTerkecil <= 66) {
+    jumlahTercapai = jumlahTarget;
+  }
+
+  // Kemajuan berurutan: jika surah target ke-4 sudah dicapai,
+  // posisi target dihitung sampai surah tersebut.
+  if (surahTargetTercapai.length > 0) {
+    const posisiTerdalam = Math.max(
+      ...surahTargetTercapai.map(s => posisiTarget.get(Number(s[0])))
+    );
+
+    jumlahTercapai = Math.max(
+      jumlahTercapai,
+      posisiTerdalam + 1
+    );
+  }
+
+  jumlahTercapai = Math.min(jumlahTarget, jumlahTercapai);
+
   const persentase = Math.round(
     (jumlahTercapai / jumlahTarget) * 10000
   ) / 100;
@@ -13293,10 +13313,9 @@ function hitungPersentaseTargetHafalan(student, cls, periodMonths) {
       : 'Target belum tercapai',
     tercapai: jumlahTercapai,
     target: jumlahTarget,
-    surahTercapai: surahTercapai.map(s => s[1])
+    surahTercapai: surahTargetTercapai.map(s => s[1])
   };
 }
-
 function closeQuarterlyPreview(){
   go('report');
 }
