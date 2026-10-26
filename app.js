@@ -14687,24 +14687,34 @@ function certificate() {
 
       </div>
 
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
 
-        <p class="text-sm text-slate-600">
-          <b>${rows.length}</b> sertifikat ditampilkan.
-        </p>
+  <p class="text-sm text-slate-600">
+    <b>${rows.length}</b> sertifikat ditampilkan.
+  </p>
 
-        <button
-          onclick="
-            window.certificateWeekFilter = 'this_week';
-            window.certificateStatusFilter = 'issued';
-            window.certificateSearchName = '';
-            go('certificate');
-          "
-          class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
-          Reset Filter
-        </button>
+  <div class="flex flex-wrap gap-2">
 
-      </div>
+    <button
+      onclick="exportSertifikatExcel()"
+      class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold">
+      <i class="fa-solid fa-file-excel mr-1"></i>
+      Export Excel
+    </button>
+
+    <button
+      onclick="
+        window.certificateWeekFilter = 'this_week';
+        window.certificateStatusFilter = 'issued';
+        window.certificateSearchName = '';
+        go('certificate');
+      "
+      class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+      Reset Filter
+    </button>
+
+  </div>
+</div>
 
       <!-- TABEL -->
       <div class="overflow-x-auto">
@@ -14825,6 +14835,158 @@ function certificate() {
       </div>
     </div>
   `;
+}
+
+function exportSertifikatExcel() {
+  if (typeof XLSX === 'undefined') {
+    return toast('Pustaka Excel belum tersedia.', 'err');
+  }
+
+  const allRows = Array.isArray(cache.certificates)
+    ? cache.certificates.filter(
+        x =>
+          current.role === 'koordinator' ||
+          x.requested_by === current.id
+      )
+    : [];
+
+  const weekFilter = window.certificateWeekFilter || 'this_week';
+  const statusFilter = window.certificateStatusFilter || 'issued';
+  const searchName = (window.certificateSearchName || '')
+    .trim()
+    .toLowerCase();
+
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const day = startOfWeek.getDay();
+  startOfWeek.setDate(
+    startOfWeek.getDate() + (day === 0 ? -6 : 1 - day)
+  );
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+  const startOfLastWeek = new Date(startOfWeek);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  );
+
+  function getIssuedDate(x) {
+    if (!x.issued_at) return null;
+
+    const date = new Date(x.issued_at);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function formatDate(value) {
+    if (!value) return '-';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  const rows = allRows.filter(x => {
+    const student = (cache.students || []).find(
+      s => s.id === x.student_id
+    );
+
+    const name = student?.nama || '';
+    const date = getIssuedDate(x);
+
+    let matchesWeek = true;
+
+    if (weekFilter !== 'all') {
+      if (!date) {
+        matchesWeek = false;
+      } else if (weekFilter === 'this_week') {
+        matchesWeek = date >= startOfWeek && date < endOfWeek;
+      } else if (weekFilter === 'last_week') {
+        matchesWeek = date >= startOfLastWeek && date < startOfWeek;
+      } else if (weekFilter === 'this_month') {
+        matchesWeek = date >= startOfMonth && date <= now;
+      }
+    }
+
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'issued' && x.status === 'issued') ||
+      (statusFilter === 'pending' && x.status === 'pending') ||
+      (statusFilter === 'rejected' && x.status === 'rejected');
+
+    const matchesName = name.toLowerCase().includes(searchName);
+
+    return matchesWeek && matchesStatus && matchesName;
+  });
+
+  if (!rows.length) {
+    return toast('Tidak ada data sertifikat untuk diekspor.', 'err');
+  }
+
+  const data = rows.map(x => {
+    const examData = (cache.exams || []).find(
+      e => e.id === x.exam_request_id
+    );
+
+    const student = (cache.students || []).find(
+      s => s.id === x.student_id
+    );
+
+    const status =
+      x.status === 'issued'
+        ? 'Diterbitkan'
+        : x.status === 'rejected'
+          ? 'Ditolak'
+          : 'Menunggu Penerbitan';
+
+    return {
+      'Murid': student?.nama || '-',
+      'Juz': examData?.juz || '-',
+      'Tanggal Ujian': examData?.tanggal || '-',
+      'Predikat': examData?.predikat || '-',
+      'Status Sertifikat': status,
+      'Tanggal Diterbitkan': formatDate(x.issued_at)
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+
+  worksheet['!cols'] = [
+    { wch: 30 },
+    { wch: 12 },
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 24 },
+    { wch: 22 }
+  ];
+
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    'Sertifikat'
+  );
+
+  const tanggal = new Date().toISOString().slice(0, 10);
+
+  XLSX.writeFile(
+    workbook,
+    `Rekap_Sertifikat_Kenaikan_Juz_${tanggal}.xlsx`
+  );
+
+  toast('Export Excel berhasil.');
 }
 async function deleteCertificate(id){
 
