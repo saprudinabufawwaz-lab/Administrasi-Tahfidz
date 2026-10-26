@@ -14687,32 +14687,34 @@ function certificate() {
 
       </div>
 
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
 
-        <p class="text-sm text-slate-600">
-          <b>${rows.length}</b> sertifikat ditampilkan.
-        </p>
+  <p class="text-sm text-slate-600">
+    <b>${rows.length}</b> sertifikat ditampilkan.
+  </p>
 
-        <button
-  onclick="exportSertifikatExcel()"
-  class="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700"
->
-  <i class="fa-solid fa-file-excel mr-2"></i>
-  Export Excel
-</button>
+  <div class="flex flex-wrap gap-2">
 
-        <button
-          onclick="
-            window.certificateWeekFilter = 'this_week';
-            window.certificateStatusFilter = 'issued';
-            window.certificateSearchName = '';
-            go('certificate');
-          "
-          class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
-          Reset Filter
-        </button>
+    <button
+      onclick="exportSertifikatExcel()"
+      class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold">
+      <i class="fa-solid fa-file-excel mr-1"></i>
+      Export Excel
+    </button>
 
-      </div>
+    <button
+      onclick="
+        window.certificateWeekFilter = 'this_week';
+        window.certificateStatusFilter = 'issued';
+        window.certificateSearchName = '';
+        go('certificate');
+      "
+      class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+      Reset Filter
+    </button>
+
+  </div>
+</div>
 
       <!-- TABEL -->
       <div class="overflow-x-auto">
