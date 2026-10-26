@@ -14694,6 +14694,14 @@ function certificate() {
         </p>
 
         <button
+  onclick="exportSertifikatExcel()"
+  class="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700"
+>
+  <i class="fa-solid fa-file-excel mr-2"></i>
+  Export Excel
+</button>
+
+        <button
           onclick="
             window.certificateWeekFilter = 'this_week';
             window.certificateStatusFilter = 'issued';
