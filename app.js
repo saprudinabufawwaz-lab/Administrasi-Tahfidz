@@ -14687,34 +14687,24 @@ function certificate() {
 
       </div>
 
-<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
 
-  <p class="text-sm text-slate-600">
-    <b>${rows.length}</b> sertifikat ditampilkan.
-  </p>
+        <p class="text-sm text-slate-600">
+          <b>${rows.length}</b> sertifikat ditampilkan.
+        </p>
 
-  <div class="flex flex-wrap gap-2">
+        <button
+          onclick="
+            window.certificateWeekFilter = 'this_week';
+            window.certificateStatusFilter = 'issued';
+            window.certificateSearchName = '';
+            go('certificate');
+          "
+          class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+          Reset Filter
+        </button>
 
-    <button
-      onclick="exportSertifikatExcel()"
-      class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold">
-      <i class="fa-solid fa-file-excel mr-1"></i>
-      Export Excel
-    </button>
-
-    <button
-      onclick="
-        window.certificateWeekFilter = 'this_week';
-        window.certificateStatusFilter = 'issued';
-        window.certificateSearchName = '';
-        go('certificate');
-      "
-      class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
-      Reset Filter
-    </button>
-
-  </div>
-</div>
+      </div>
 
       <!-- TABEL -->
       <div class="overflow-x-auto">
@@ -14723,6 +14713,7 @@ function certificate() {
           <thead>
             <tr class="bg-slate-50">
               <th class="p-3 text-left">Murid</th>
+              <th class="p-3 text-left">Kelas</th>
               <th class="p-3 text-left">Juz</th>
               <th class="p-3 text-left">Tanggal Ujian</th>
               <th class="p-3 text-left">Predikat</th>
@@ -14744,11 +14735,20 @@ function certificate() {
                       s => s.id === x.student_id
                     );
 
+                    // Ambil nama kelas berdasarkan class_id murid.
+                    const kelas = (cache.classes || []).find(
+                      c => c.id === student?.class_id
+                    );
+
                     return `
                       <tr class="border-t hover:bg-slate-50">
 
                         <td class="p-3">
                           ${esc(student?.nama || '-')}
+                        </td>
+
+                        <td class="p-3">
+                          ${esc(kelas?.nama || '-')}
                         </td>
 
                         <td class="p-3">
@@ -14822,7 +14822,7 @@ function certificate() {
                   }).join('')
                 : `
                   <tr>
-                    <td colspan="7"
+                    <td colspan="8"
                         class="p-6 text-center text-slate-500">
                       Tidak ada sertifikat yang sesuai dengan filter.
                     </td>
@@ -14839,7 +14839,7 @@ function certificate() {
 
 function exportSertifikatExcel() {
   if (typeof XLSX === 'undefined') {
-    return toast('Pustaka Excel belum tersedia.', 'err');
+    return toast('Library Excel XLSX belum tersedia.', 'err');
   }
 
   const allRows = Array.isArray(cache.certificates)
@@ -14850,13 +14850,17 @@ function exportSertifikatExcel() {
       )
     : [];
 
-  const weekFilter = window.certificateWeekFilter || 'this_week';
-  const statusFilter = window.certificateStatusFilter || 'issued';
-  const searchName = (window.certificateSearchName || '')
-    .trim()
-    .toLowerCase();
+  const weekFilter =
+    window.certificateWeekFilter || 'this_week';
+
+  const statusFilter =
+    window.certificateStatusFilter || 'issued';
+
+  const searchName =
+    window.certificateSearchName || '';
 
   const now = new Date();
+
   const startOfWeek = new Date(now);
   startOfWeek.setHours(0, 0, 0, 0);
 
@@ -14884,17 +14888,25 @@ function exportSertifikatExcel() {
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  function formatDate(value) {
-    if (!value) return '-';
+  function matchesWeek(x) {
+    const date = getIssuedDate(x);
 
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
+    if (weekFilter === 'all') return true;
+    if (!date) return false;
 
-    return date.toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    if (weekFilter === 'this_week') {
+      return date >= startOfWeek && date < endOfWeek;
+    }
+
+    if (weekFilter === 'last_week') {
+      return date >= startOfLastWeek && date < startOfWeek;
+    }
+
+    if (weekFilter === 'this_month') {
+      return date >= startOfMonth && date <= now;
+    }
+
+    return true;
   }
 
   const rows = allRows.filter(x => {
@@ -14903,21 +14915,6 @@ function exportSertifikatExcel() {
     );
 
     const name = student?.nama || '';
-    const date = getIssuedDate(x);
-
-    let matchesWeek = true;
-
-    if (weekFilter !== 'all') {
-      if (!date) {
-        matchesWeek = false;
-      } else if (weekFilter === 'this_week') {
-        matchesWeek = date >= startOfWeek && date < endOfWeek;
-      } else if (weekFilter === 'last_week') {
-        matchesWeek = date >= startOfLastWeek && date < startOfWeek;
-      } else if (weekFilter === 'this_month') {
-        matchesWeek = date >= startOfMonth && date <= now;
-      }
-    }
 
     const matchesStatus =
       statusFilter === 'all' ||
@@ -14925,13 +14922,25 @@ function exportSertifikatExcel() {
       (statusFilter === 'pending' && x.status === 'pending') ||
       (statusFilter === 'rejected' && x.status === 'rejected');
 
-    const matchesName = name.toLowerCase().includes(searchName);
+    const matchesName = name
+      .toLowerCase()
+      .includes(searchName.trim().toLowerCase());
 
-    return matchesWeek && matchesStatus && matchesName;
+    return matchesWeek(x) && matchesStatus && matchesName;
   });
 
-  if (!rows.length) {
-    return toast('Tidak ada data sertifikat untuk diekspor.', 'err');
+  function formatDate(value) {
+    if (!value) return '-';
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return '-';
+
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   }
 
   const data = rows.map(x => {
@@ -14943,19 +14952,23 @@ function exportSertifikatExcel() {
       s => s.id === x.student_id
     );
 
-    const status =
-      x.status === 'issued'
-        ? 'Diterbitkan'
-        : x.status === 'rejected'
-          ? 'Ditolak'
-          : 'Menunggu Penerbitan';
+    const kelas = (cache.classes || []).find(
+      c => c.id === student?.class_id
+    );
 
     return {
       'Murid': student?.nama || '-',
+      'Kelas': kelas?.nama || '-',
       'Juz': examData?.juz || '-',
       'Tanggal Ujian': examData?.tanggal || '-',
       'Predikat': examData?.predikat || '-',
-      'Status Sertifikat': status,
+      'Status Sertifikat':
+        x.status === 'issued'
+          ? 'Diterbitkan'
+          : x.status === 'rejected'
+            ? 'Ditolak'
+            : 'Menunggu Penerbitan',
+      'Nomor Sertifikat': x.certificate_number || '-',
       'Tanggal Diterbitkan': formatDate(x.issued_at)
     };
   });
@@ -14963,12 +14976,14 @@ function exportSertifikatExcel() {
   const worksheet = XLSX.utils.json_to_sheet(data);
 
   worksheet['!cols'] = [
-    { wch: 30 },
-    { wch: 12 },
-    { wch: 18 },
-    { wch: 22 },
-    { wch: 24 },
-    { wch: 22 }
+    { wch: 28 }, // Murid
+    { wch: 20 }, // Kelas
+    { wch: 10 }, // Juz
+    { wch: 18 }, // Tanggal Ujian
+    { wch: 20 }, // Predikat
+    { wch: 24 }, // Status Sertifikat
+    { wch: 38 }, // Nomor Sertifikat
+    { wch: 22 }  // Tanggal Diterbitkan
   ];
 
   const workbook = XLSX.utils.book_new();
@@ -14986,8 +15001,9 @@ function exportSertifikatExcel() {
     `Rekap_Sertifikat_Kenaikan_Juz_${tanggal}.xlsx`
   );
 
-  toast('Export Excel berhasil.');
+  toast('Data sertifikat berhasil diekspor ke Excel.');
 }
+
 async function deleteCertificate(id){
 
   const request =
