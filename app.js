@@ -389,7 +389,7 @@ function go(page, pushHistory = true) {
   const allowedPages = {
   koordinator: ['home','journal','report','exam','certificate','rapor','guru','settings','student'],
   guru: ['home','journal','report','exam','rapor','student'],
-  penguji: ['exam','certificate']
+  penguji: ['exam','certificate'],
 };
 
   if (!allowedPages[role]?.includes(page)) {
