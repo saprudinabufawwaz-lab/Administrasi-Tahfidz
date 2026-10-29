@@ -328,6 +328,13 @@ function buildNav() {
       📊 Rekap 3 Bulan
     </button>
 
+${!isC ? `
+  <button onclick="go('rapor')"
+    class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+    📑 Rapor Tahfidz
+  </button>
+` : ''}
+
     <button onclick="go('exam')"
       class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
       🏅 Ujian Kenaikan Juz
