@@ -16661,7 +16661,10 @@ async function saveVerify(e, id) {
 
   // Penerbitan otomatis hanya untuk koordinator,
   // sesuai alur sertifikat yang sudah berjalan.
-  if (status === 'Lulus' && current.role === 'koordinator') {
+if (
+  status === 'Lulus' &&
+  ['koordinator', 'penguji'].includes(current.role)
+) {
     const eligiblePredikat = [
       "Mumtaz Murtafi'",
       'Mumtaz',
@@ -16754,12 +16757,12 @@ async function saveVerify(e, id) {
 
   closeModal();
   await loadAll();
-
-  go(
-    status === 'Lulus' && current.role === 'koordinator'
-      ? 'certificate'
-      : 'exam'
-  );
+go(
+  status === 'Lulus' &&
+  ['koordinator', 'penguji'].includes(current.role)
+    ? 'certificate'
+    : 'exam'
+);
 }
 
 
