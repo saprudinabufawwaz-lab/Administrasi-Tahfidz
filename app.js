@@ -297,17 +297,24 @@ function buildNav() {
   const isC = current.role === 'koordinator';
   const isP = current.role === 'penguji';
 
-  // Akun penguji hanya melihat menu ujian.
-  if (isP) {
-    $('nav').innerHTML = `
-      <button
-        onclick="go('exam')"
-        class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
-        🏅 Ujian Kenaikan Juz
-      </button>
-    `;
-    return;
-  }
+
+// Akun penguji dapat melihat menu ujian dan sertifikat.
+if (isP) {
+  $('nav').innerHTML = `
+    <button
+      onclick="go('exam')"
+      class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+      🏅 Ujian Kenaikan Juz
+    </button>
+
+    <button
+      onclick="go('certificate')"
+      class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+      📜 Sertifikat Kenaikan Juz
+    </button>
+  `;
+  return;
+}
 
   $('nav').innerHTML = `
    
