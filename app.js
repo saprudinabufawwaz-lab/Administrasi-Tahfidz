@@ -374,8 +374,8 @@ function go(page, pushHistory = true) {
   // Daftar halaman yang boleh diakses masing-masing role.
   const allowedPages = {
   koordinator: ['home','journal','report','exam','certificate','rapor','guru','settings','student'],
-  guru: ['home','journal','report','exam','student'],
-  penguji: ['exam']
+  guru: ['home','journal','report','exam','rapor','student'],
+  penguji: ['exam','certificate']
 };
 
   if (!allowedPages[role]?.includes(page)) {
