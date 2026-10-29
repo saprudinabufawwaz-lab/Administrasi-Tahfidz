@@ -14483,14 +14483,13 @@ async function requestCertificate(examId){
 }
 
 function certificate() {
-  const allRows = Array.isArray(cache.certificates)
-    ? cache.certificates.filter(
-        x =>
-          current.role === 'koordinator' ||
-          x.requested_by === current.id
-      )
-    : [];
-
+const allRows = Array.isArray(cache.certificates)
+  ? cache.certificates.filter(
+      x =>
+        ['koordinator', 'penguji'].includes(current.role) ||
+        x.requested_by === current.id
+    )
+  : [];
   // Filter disimpan agar tidak kembali ke awal setiap render.
   const weekFilter =
     window.certificateWeekFilter || 'this_week';
