@@ -1324,8 +1324,71 @@ function isRaporStudentAllowed(studentId){
 }
 function rapor(){
 
-  const visibleStudents =
-    getRaporAllowedStudents();
+  const st = window.raporState || {};
+
+  const isKoordinator = current.role === 'koordinator';
+
+  // Penugasan guru
+  const teacherClassIds = cache.teacherClass
+    .filter(x => String(x.teacher_id) === String(current.id))
+    .map(x => String(x.class_id));
+
+  const teacherHalaqohIds = cache.teacherHalaqoh
+    .filter(x => String(x.teacher_id) === String(current.id))
+    .map(x => String(x.halaqoh_id));
+
+  // Jenis filter yang dipilih
+  const filterType = st.filter_type || 'kelas';
+  const filterId = st.filter_id || '';
+
+  // Pilihan kelas/halaqoh yang boleh diakses
+  const filterOptions = isKoordinator
+    ? (filterType === 'kelas' ? cache.classes : cache.halaqoh)
+    : (filterType === 'kelas'
+        ? cache.classes.filter(x =>
+            teacherClassIds.includes(String(x.id))
+          )
+        : cache.halaqoh.filter(x =>
+            teacherHalaqohIds.includes(String(x.id))
+          ));
+
+  // Daftar murid mengikuti filter
+  const visibleStudents = cache.students
+    .filter(s => {
+      if (s.aktif === false) return false;
+
+      if (filterType === 'kelas') {
+        if (!s.class_id) return false;
+
+        if (filterId && String(s.class_id) !== String(filterId)) {
+          return false;
+        }
+
+        if (!isKoordinator &&
+            !teacherClassIds.includes(String(s.class_id))) {
+          return false;
+        }
+
+        return true;
+      }
+
+      if (!s.halaqoh_id) return false;
+
+      if (filterId &&
+          String(s.halaqoh_id) !== String(filterId)) {
+        return false;
+      }
+
+      if (!isKoordinator &&
+          !teacherHalaqohIds.includes(String(s.halaqoh_id))) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort((a,b) =>
+      String(a.nama || '').localeCompare(String(b.nama || ''), 'id')
+    );
 
   const years = [
     ...new Set(
@@ -1341,174 +1404,129 @@ function rapor(){
 
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
 
-        <div class="flex flex-col lg:flex-row lg:items-end gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 
-          <!-- TAHUN AJARAN -->
-          <label class="block text-sm font-medium flex-1">
-
+          <label class="block text-sm font-medium">
             Tahun Ajaran
-
             <input
               id="raporYear"
-              value="${esc(
-                window.raporState?.academic_year ||
-                years[0] ||
-                '2026/2027'
-              )}"
+              value="${esc(st.academic_year || years[0] || '2026/2027')}"
               class="mt-1 w-full p-2.5 border rounded-lg"
               placeholder="2026/2027"
             >
-
           </label>
 
-
-          <!-- SEMESTER -->
-          <label class="block text-sm font-medium w-full lg:w-48">
-
+          <label class="block text-sm font-medium">
             Semester
-
-            <select
-              id="raporSemester"
-              class="mt-1 w-full p-2.5 border rounded-lg"
-            >
-
-              ${['Ganjil','Genap']
-                .map(x => `
-                  <option
-                    ${(
-                      (window.raporState?.semester || 'Ganjil')
-                      === x
-                    ) ? 'selected' : ''}
-                  >
-                    ${x}
-                  </option>
-                `)
-                .join('')}
-
+            <select id="raporSemester" class="mt-1 w-full p-2.5 border rounded-lg">
+              ${['Ganjil','Genap'].map(x => `
+                <option ${(st.semester || 'Ganjil') === x ? 'selected' : ''}>
+                  ${x}
+                </option>
+              `).join('')}
             </select>
-
           </label>
 
+          <label class="block text-sm font-medium">
+            Filter Berdasarkan
+            <select
+              id="raporFilterType"
+              onchange="ubahFilterRapor()"
+              class="mt-1 w-full p-2.5 border rounded-lg"
+            >
+              <option value="kelas" ${filterType === 'kelas' ? 'selected' : ''}>Kelas</option>
+              <option value="halaqoh" ${filterType === 'halaqoh' ? 'selected' : ''}>Halaqoh</option>
+            </select>
+          </label>
 
-          <!-- NAMA MURID -->
-          <label class="block text-sm font-medium flex-[2]">
+          <label class="block text-sm font-medium">
+            Pilih ${filterType === 'kelas' ? 'Kelas' : 'Halaqoh'}
+            <select
+              id="raporFilterId"
+              onchange="ubahPilihanMuridRapor()"
+              class="mt-1 w-full p-2.5 border rounded-lg"
+            >
+              <option value="">${isKoordinator ? 'Semua ' : 'Pilih '}${filterType === 'kelas' ? 'Kelas' : 'Halaqoh'}</option>
+              ${filterOptions.map(x => `
+                <option value="${x.id}" ${String(filterId) === String(x.id) && filterId ? 'selected' : ''}>
+                  ${esc(x.nama || '-')}
+                </option>
+              `).join('')}
+            </select>
+          </label>
 
+          <label class="block text-sm font-medium lg:col-span-2">
             Nama Murid
+            <select id="raporStudent" class="mt-1 w-full p-2.5 border rounded-lg">
+              <option value="">Pilih murid</option>
+              ${visibleStudents.map(s => {
+                const className = cache.classes.find(c => String(c.id) === String(s.class_id))?.nama || '-';
+                const halaqohName = cache.halaqoh.find(h => String(h.id) === String(s.halaqoh_id))?.nama || '-';
 
-            <select
-              id="raporStudent"
-              class="mt-1 w-full p-2.5 border rounded-lg"
-            >
-
-              <option value="">
-                Pilih murid
-              </option>
-
-              ${
-                visibleStudents.length
-                ?
-
-                visibleStudents
-                  .map(s => {
-
-                    const className =
-                      cache.classes.find(
-                        c => c.id === s.class_id
-                      )?.nama || '-';
-
-                    const halaqohName =
-                      cache.halaqoh.find(
-                        h => h.id === s.halaqoh_id
-                      )?.nama || '-';
-
-                    return `
-                      <option
-                        value="${s.id}"
-                        ${
-                          window.raporState?.student_id === s.id
-                          ? 'selected'
-                          : ''
-                        }
-                      >
-                        ${esc(s.nama)}
-                        — ${esc(className)}
-                        — ${esc(halaqohName)}
-                      </option>
-                    `;
-                  })
-                  .join('')
-
-                :
-
-                `
-                  <option value="" disabled>
-                    ${
-                      current.role === 'koordinator'
-                      ? 'Belum ada murid aktif'
-                      : 'Tidak ada murid yang Anda ampu'
-                    }
+                return `
+                  <option value="${s.id}" ${String(st.student_id) === String(s.id) ? 'selected' : ''}>
+                    ${esc(s.nama)} — ${esc(className)} — ${esc(halaqohName)}
                   </option>
-                `
-              }
-
+                `;
+              }).join('')}
             </select>
-
-            <span class="text-xs text-slate-500 mt-1 block">
-
-              ${
-                current.role === 'koordinator'
-                ? 'Koordinator dapat memilih semua murid aktif.'
-                : 'Guru hanya dapat memilih murid dari kelas atau halaqoh yang diampu.'
-              }
-
-            </span>
-
           </label>
 
+        </div>
 
-          <!-- TOMBOL MUAT -->
+        <div class="mt-4">
           <button
             onclick="loadRaporData()"
             class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold"
           >
             🔎 Muat Rapor
           </button>
-
         </div>
 
       </div>
 
-
-      <!-- WORKSPACE -->
-
       <div id="raporWorkspace">
-
         ${
-          window.raporState?.student_id
-          ?
-
-          renderRaporWorkspace()
-
-          :
-
-          `
-            <div
-              class="bg-white rounded-2xl p-8 text-center
-                     text-slate-500 shadow-sm
-                     border border-slate-100"
-            >
-
-              Pilih tahun ajaran, semester, dan murid
-              lalu klik <b>Muat Rapor</b>.
-
-            </div>
-          `
+          st.student_id &&
+          visibleStudents.some(s => String(s.id) === String(st.student_id))
+            ? renderRaporWorkspace()
+            : `
+              <div class="bg-white rounded-2xl p-8 text-center text-slate-500 shadow-sm border border-slate-100">
+                Pilih filter dan murid, lalu klik <b>Muat Rapor</b>.
+              </div>
+            `
         }
-
       </div>
 
     </div>
   `;
+}
+
+function ubahFilterRapor(){
+  const filterType = $('raporFilterType')?.value || 'kelas';
+
+  window.raporState = {
+    ...(window.raporState || {}),
+    filter_type: filterType,
+    filter_id: '',
+    student_id: ''
+  };
+
+  go('rapor');
+}
+
+function ubahPilihanMuridRapor(){
+  const filterType = $('raporFilterType')?.value || 'kelas';
+  const filterId = $('raporFilterId')?.value || '';
+
+  window.raporState = {
+    ...(window.raporState || {}),
+    filter_type: filterType,
+    filter_id: filterId,
+    student_id: ''
+  };
+
+  go('rapor');
 }
 function getRaporTanggalTerbit(){
 
@@ -10531,52 +10549,33 @@ function bindRapor(){
 
 }
 
-
 function loadRaporData(){
 
-  const student_id =
-    $('raporStudent')?.value;
-
-  const academic_year =
-    $('raporYear')?.value.trim();
-
-  const semester =
-    $('raporSemester')?.value;
-
+  const student_id = $('raporStudent')?.value;
+  const academic_year = $('raporYear')?.value.trim();
+  const semester = $('raporSemester')?.value;
+  const filter_type = $('raporFilterType')?.value || 'kelas';
+  const filter_id = $('raporFilterId')?.value || '';
 
   if(!student_id){
-
-    return toast(
-      'Silakan pilih murid terlebih dahulu',
-      'err'
-    );
-
+    return toast('Silakan pilih murid terlebih dahulu', 'err');
   }
-
 
   if(!academic_year){
-
-    return toast(
-      'Tahun ajaran wajib diisi',
-      'err'
-    );
-
+    return toast('Tahun ajaran wajib diisi', 'err');
   }
 
-
   window.raporState = {
-
+    ...(window.raporState || {}),
     student_id,
     academic_year,
-    semester
-
+    semester,
+    filter_type,
+    filter_id
   };
 
-
   go('rapor');
-
 }
-
 
 function getCurrentRapor(){
 
