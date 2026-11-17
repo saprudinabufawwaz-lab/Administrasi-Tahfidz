@@ -10145,7 +10145,7 @@ async function exportRaporExcel(){
 
 
     toast(
-      'Rapor berhasil diexport.'
+      'Rapor berhasil diunduh.'
     );
 
   }catch(error){
@@ -10168,10 +10168,12 @@ async function exportRaporExcel(){
 
 
 /* =========================================================
-   EXPORT SEMUA HALAQOH
+   DOWNLOAD SEMUA RAPOR BERDASARKAN KELAS
    ---------------------------------------------------------
    1 FILE XLSX
    1 SHEET = 1 MURID
+   Guru boleh mengunduh semua murid dalam kelas yang diampu,
+   walaupun murid-murid tersebut berasal dari halaqoh berbeda.
 ========================================================= */
 
 async function exportRaporExcelHalaqoh(){
@@ -10186,18 +10188,53 @@ async function exportRaporExcelHalaqoh(){
       return toast('Semester belum dipilih.', 'err');
     }
 
-    const students = (
-      typeof getRaporAllowedStudents === 'function'
-        ? getRaporAllowedStudents()
-        : (cache?.students || []).filter(s => s.aktif !== false)
-    ).filter(s => s.aktif !== false);
-
-    if(!students.length){
-      return toast('Tidak ada murid yang dapat diexport.', 'err');
+    // Fitur download massal sekarang khusus berdasarkan kelas.
+    if((st.filter_type || 'kelas') !== 'kelas'){
+      return toast('Pilih filter Kelas terlebih dahulu untuk download semua rapor.', 'err');
     }
 
-    // Validasi semua penugasan lebih dahulu agar tidak menghasilkan
-    // rapor dengan nama pengampu kosong/salah.
+    if(!st.filter_id){
+      return toast('Pilih satu kelas terlebih dahulu.', 'err');
+    }
+
+    const selectedClass = (cache.classes || []).find(
+      c => String(c.id) === String(st.filter_id)
+    );
+
+    if(!selectedClass){
+      return toast('Data kelas yang dipilih tidak ditemukan.', 'err');
+    }
+
+    // Guru hanya boleh mengunduh kelas yang memang ditugaskan kepadanya.
+    if(current?.role !== 'koordinator'){
+      const isAssignedClass = (cache.teacherClass || []).some(
+        x =>
+          String(x.teacher_id) === String(current?.id) &&
+          String(x.class_id) === String(st.filter_id)
+      );
+
+      if(!isAssignedClass){
+        return toast('Kelas ini bukan kelas yang ditugaskan kepada akun Anda.', 'err');
+      }
+    }
+
+    // Ambil semua murid aktif berdasarkan kelas yang dipilih,
+    // bukan berdasarkan halaqoh guru yang sedang login.
+    const students = (cache.students || [])
+      .filter(student =>
+        student.aktif !== false &&
+        String(student.class_id) === String(st.filter_id)
+      )
+      .sort((a,b) =>
+        String(a.nama || '').localeCompare(String(b.nama || ''), 'id')
+      );
+
+    if(!students.length){
+      return toast(`Tidak ada murid aktif di kelas ${selectedClass.nama || ''}.`, 'err');
+    }
+
+    // Setiap murid tetap harus memiliki guru pengampu halaqoh yang valid.
+    // Nama guru diambil dari penugasan halaqoh masing-masing murid.
     const unresolved = students
       .map(student => ({
         student,
@@ -10208,7 +10245,7 @@ async function exportRaporExcelHalaqoh(){
     if(unresolved.length){
       const first = unresolved[0];
       throw new Error(
-        `${unresolved.length} murid belum memiliki penugasan guru halaqoh yang valid. ` +
+        `${unresolved.length} murid di kelas ${selectedClass.nama || ''} belum memiliki penugasan guru halaqoh yang valid. ` +
         `Contoh: ${first.student.nama} — ${first.result.error}`
       );
     }
@@ -10220,8 +10257,7 @@ async function exportRaporExcelHalaqoh(){
     const templateName = '__TEMPLATE_BASE__';
     templateSheet.name = templateName;
 
-    // Template sumber dibiarkan tetap bersih. Setiap rapor dibuat
-    // sebagai worksheet baru dengan style, merge, dan page setup template.
+    // Buat satu worksheet rapor untuk setiap murid menggunakan template.
     for(let index = 0; index < students.length; index++){
       const student = students[index];
 
@@ -10243,27 +10279,14 @@ async function exportRaporExcelHalaqoh(){
     });
 
     const url = URL.createObjectURL(blob);
-    const halaqohNames = [...new Set(
-      students.map(student =>
-        cache.halaqoh.find(h =>
-          String(h.id) === String(student.halaqoh_id)
-        )?.nama
-      ).filter(Boolean)
-    )];
-
-    const halaqohLabel = halaqohNames.length === 1
-      ? halaqohNames[0]
-      : 'Semua Halaqoh';
-
-    const safeLabel = String(halaqohLabel)
+    const safeClassName = String(selectedClass.nama || 'Kelas')
       .replace(/[\\\/\?\*\[\]\:]/g, '')
-      .trim() || 'Semua Halaqoh';
-
+      .trim() || 'Kelas';
     const safeYear = String(st.academic_year)
       .replace(/[\\\/\?\*\[\]\:]/g, '_');
 
     const fileName =
-      `Rapor Tahfidz - ${safeLabel} - ${st.semester} ${safeYear}.xlsx`;
+      `Rapor Tahfidz - ${safeClassName} - ${st.semester} ${safeYear}.xlsx`;
 
     const a = document.createElement('a');
     a.href = url;
@@ -10273,10 +10296,11 @@ async function exportRaporExcelHalaqoh(){
     a.remove();
 
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    toast(`Berhasil export ${students.length} rapor.`);
+    toast(`Berhasil mengunduh ${students.length} rapor kelas ${selectedClass.nama || ''}.`);
+
   }catch(error){
     console.error('exportRaporExcelHalaqoh error:', error);
-    toast(`Gagal export semua rapor: ${error?.message || error}`, 'err');
+    toast(`Gagal download semua rapor kelas: ${error?.message || error}`, 'err');
   }
 }
 
@@ -10599,12 +10623,12 @@ const nilaiAkhir =
 <button
   onclick="exportRaporExcel()"
   class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">
-  📊 Export Excel
+  ⬇️ Download Rapor
 </button>
 <button
   onclick="exportRaporExcelHalaqoh()"
   class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-  📚 Export Semua Halaqoh
+  ⬇️ Download Semua Rapor Kelas
 </button>
 </div>
 
