@@ -2410,20 +2410,15 @@ function renderRaporPreview(data){
         : [];
 
 
-    const teacher =
-      assessment?.teacher_id
-        ? profiles.find(
-            x =>
-              x.id === assessment.teacher_id
-          )
-        : null;
+    const teacherResolution =
+      getRaporHalaqohTeacher(student);
 
+    const teacher =
+      teacherResolution.teacher;
 
     const teacherName =
       teacher?.nama ||
-      current?.nama ||
       '-';
-
 
     const teacherNip =
       teacher?.nipy ||
@@ -5401,25 +5396,18 @@ function printRapor(){
        GURU TAUHDZ
     ===================================================== */
 
-    const teacher =
-      cache.profiles.find(
-        p => p.id === assessment?.teacher_id
-      ) ||
-      cache.profiles.find(
-        p => p.id === current?.id
-      ) ||
-      null;
+    const teacherResolution =
+      getRaporHalaqohTeacher(student);
 
+    const teacher =
+      teacherResolution.teacher;
 
     const teacherName =
       teacher?.nama ||
-      current?.nama ||
       '-';
-
 
     const teacherNipy =
       teacher?.nipy ||
-      current?.nipy ||
       '';
 
 
@@ -8977,6 +8965,43 @@ function raporExcelCopyWorksheet(
    AMBIL DATA RAPOR SATU MURID
 ========================================================= */
 
+function getRaporHalaqohTeacher(student){
+  if(!student?.halaqoh_id){
+    return { teacher: null, error: 'Murid belum terhubung ke halaqoh.' };
+  }
+
+  const assignments = (cache.teacherHalaqoh || []).filter(
+    x => String(x.halaqoh_id) === String(student.halaqoh_id)
+  );
+
+  if(assignments.length > 1){
+    return {
+      teacher: null,
+      error: 'Halaqoh murid memiliki lebih dari satu guru pengampu. Periksa penugasan guru terlebih dahulu.'
+    };
+  }
+
+  if(assignments.length === 0){
+    return {
+      teacher: null,
+      error: 'Guru pengampu halaqoh murid belum ditetapkan.'
+    };
+  }
+
+  const teacher = (cache.profiles || []).find(
+    p => String(p.id) === String(assignments[0].teacher_id)
+  ) || null;
+
+  if(!teacher){
+    return {
+      teacher: null,
+      error: 'Data profil guru pengampu tidak ditemukan.'
+    };
+  }
+
+  return { teacher, error: '' };
+}
+
 async function raporExcelGetStudentData(student){
 
   const st =
@@ -9227,57 +9252,23 @@ const safeMemos =
 
 
   /* =====================================================
-     GURU
-     Sumber:
-     cache.profiles
-     assessment.teacher_id
-     profiles.nipy
+     GURU PENGAMPU HALAQOH
+     Sumber otoritatif: teacher_halaqoh -> profiles.
+     Tidak menggunakan assessment.teacher_id atau akun login.
   ===================================================== */
 
-  const profiles =
-    Array.isArray(cache?.profiles)
-      ? cache.profiles
-      : [];
-
+  const teacherResolution =
+    getRaporHalaqohTeacher(student);
 
   const teacher =
-    assessment?.teacher_id
-      ? (
-          profiles.find(
-            p =>
-              p.id ===
-              assessment.teacher_id
-          ) || null
-        )
-      : null;
-
-
-  /*
-   * Jika assessment belum mempunyai teacher_id,
-   * gunakan guru yang sedang login sebagai fallback.
-   */
-  const teacherFinal =
-    teacher ||
-    (
-      current?.id
-        ? (
-            profiles.find(
-              p =>
-                p.id ===
-                current.id
-            ) || current
-          )
-        : null
-    );
-
+    teacherResolution.teacher;
 
   const teacherName =
-    teacherFinal?.nama ||
+    teacher?.nama ||
     '';
 
-
   const teacherNipy =
-    teacherFinal?.nipy ||
+    teacher?.nipy ||
     '';
 
 
@@ -9320,6 +9311,8 @@ const safeMemos =
     nilaiAkhir,
 
     teacher,
+
+    teacherResolution,
 
     teacherName,
 
@@ -10060,6 +10053,13 @@ async function exportRaporExcel(){
     }
 
 
+    const teacherResolution =
+      getRaporHalaqohTeacher(student);
+
+    if(teacherResolution.error){
+      return toast(teacherResolution.error, 'err');
+    }
+
     const {
       workbook,
       sheet: templateSheet
@@ -10177,336 +10177,107 @@ async function exportRaporExcel(){
 async function exportRaporExcelHalaqoh(){
 
   try{
-
-    const st =
-      window.raporState || {};
-
+    const st = window.raporState || {};
 
     if(!st.academic_year){
-
-      return toast(
-        'Tahun ajaran belum dipilih.',
-        'err'
-      );
-
+      return toast('Tahun ajaran belum dipilih.', 'err');
     }
-
-
     if(!st.semester){
-
-      return toast(
-        'Semester belum dipilih.',
-        'err'
-      );
-
+      return toast('Semester belum dipilih.', 'err');
     }
 
-
-    let students = [];
-
-
-    if(
-      typeof getRaporAllowedStudents ===
-      'function'
-    ){
-
-      students =
-        getRaporAllowedStudents();
-
-    }else if(
-      typeof getRaporStudentsForExport ===
-      'function'
-    ){
-
-      students =
-        getRaporStudentsForExport();
-
-    }else{
-
-      students =
-        Array.isArray(
-          cache?.students
-        )
-          ? cache.students.filter(
-              s =>
-                s.aktif !== false
-            )
-          : [];
-
-    }
-
+    const students = (
+      typeof getRaporAllowedStudents === 'function'
+        ? getRaporAllowedStudents()
+        : (cache?.students || []).filter(s => s.aktif !== false)
+    ).filter(s => s.aktif !== false);
 
     if(!students.length){
-
-      return toast(
-        'Tidak ada murid yang dapat diexport.',
-        'err'
-      );
-
+      return toast('Tidak ada murid yang dapat diexport.', 'err');
     }
 
+    // Validasi semua penugasan lebih dahulu agar tidak menghasilkan
+    // rapor dengan nama pengampu kosong/salah.
+    const unresolved = students
+      .map(student => ({
+        student,
+        result: getRaporHalaqohTeacher(student)
+      }))
+      .filter(x => x.result.error);
 
-    const {
-      workbook,
-      sheet: templateSheet
-    } =
+    if(unresolved.length){
+      const first = unresolved[0];
+      throw new Error(
+        `${unresolved.length} murid belum memiliki penugasan guru halaqoh yang valid. ` +
+        `Contoh: ${first.student.nama} — ${first.result.error}`
+      );
+    }
+
+    const { workbook, sheet: templateSheet } =
       await raporExcelLoadTemplate();
 
+    const usedNames = new Set();
+    const templateName = '__TEMPLATE_BASE__';
+    templateSheet.name = templateName;
 
-    const usedNames =
-      new Set();
+    // Template sumber dibiarkan tetap bersih. Setiap rapor dibuat
+    // sebagai worksheet baru dengan style, merge, dan page setup template.
+    for(let index = 0; index < students.length; index++){
+      const student = students[index];
 
-
-    /* -------------------------------------------------------
-       SHEET PERTAMA
-       -------------------------------------------------------
-       Template asli langsung dipakai sebagai murid pertama.
-    ------------------------------------------------------- */
-
-    const firstStudent =
-      students[0];
-
-
-    const firstData =
-      await raporExcelGetStudentData(
-        firstStudent
+      const sheet = raporExcelCopyWorksheet(
+        workbook,
+        templateSheet,
+        raporExcelSafeSheetName(student.nama, usedNames)
       );
 
-
-    raporExcelFillSheet(
-      templateSheet,
-      firstData
-    );
-
-
-    templateSheet.name =
-      raporExcelSafeSheetName(
-        firstStudent.nama,
-        usedNames
-      );
-
-
-    /* -------------------------------------------------------
-       SHEET BERIKUTNYA
-    ------------------------------------------------------- */
-
-    for(
-      let index = 1;
-      index < students.length;
-      index++
-    ){
-
-      const student =
-        students[index];
-
-
-      const data =
-        await raporExcelGetStudentData(
-          student
-        );
-
-
-      const newSheet =
-        raporExcelCopyWorksheet(
-          workbook,
-          templateSheet,
-          raporExcelSafeSheetName(
-            student.nama,
-            usedNames
-          )
-        );
-
-
-      /* ---------------------------------------------------
-         Karena templateSheet sudah berisi murid pertama,
-         kita harus mengembalikan sheet baru menjadi
-         template kosong sebelum mengisi murid berikutnya.
-
-         Cara paling aman:
-         load template baru khusus untuk setiap student.
-      --------------------------------------------------- */
-
-      const {
-        workbook: singleWorkbook,
-        sheet: cleanTemplate
-      } =
-        await raporExcelLoadTemplate();
-
-
-      raporExcelFillSheet(
-        cleanTemplate,
-        data
-      );
-
-
-      /* ---------------------------------------------------
-         Copy isi cleanTemplate ke newSheet
-      --------------------------------------------------- */
-
-      cleanTemplate.eachRow(
-        {
-          includeEmpty: true
-        },
-        (
-          sourceRow,
-          rowNumber
-        ) => {
-
-          sourceRow.eachCell(
-            {
-              includeEmpty: true
-            },
-            (
-              sourceCell,
-              columnNumber
-            ) => {
-
-              newSheet.getCell(
-                rowNumber,
-                columnNumber
-              ).value =
-                sourceCell.value;
-
-            }
-          );
-
-        }
-      );
-
-
-      /* ---------------------------------------------------
-         Hapus workbook sementara
-      --------------------------------------------------- */
-
-      singleWorkbook.removeWorksheet(
-        cleanTemplate.id
-      );
-
+      const data = await raporExcelGetStudentData(student);
+      raporExcelFillSheet(sheet, data);
     }
 
+    workbook.removeWorksheet(templateSheet.id);
 
-    /* -------------------------------------------------------
-       DOWNLOAD
-    ------------------------------------------------------- */
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
 
-    const buffer =
-      await workbook.xlsx.writeBuffer();
+    const url = URL.createObjectURL(blob);
+    const halaqohNames = [...new Set(
+      students.map(student =>
+        cache.halaqoh.find(h =>
+          String(h.id) === String(student.halaqoh_id)
+        )?.nama
+      ).filter(Boolean)
+    )];
 
+    const halaqohLabel = halaqohNames.length === 1
+      ? halaqohNames[0]
+      : 'Semua Halaqoh';
 
-    const blob =
-      new Blob(
-        [buffer],
-        {
-          type:
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        }
-      );
+    const safeLabel = String(halaqohLabel)
+      .replace(/[\\\/\?\*\[\]\:]/g, '')
+      .trim() || 'Semua Halaqoh';
 
-
-    const url =
-      URL.createObjectURL(
-        blob
-      );
-
-
-    const halaqohNames =
-      [
-        ...new Set(
-          students
-            .map(
-              student =>
-                cache.halaqoh.find(
-                  h =>
-                    h.id ===
-                    student.halaqoh_id
-                )?.nama
-            )
-            .filter(Boolean)
-        )
-      ];
-
-
-    const halaqohLabel =
-      halaqohNames.length === 1
-        ? halaqohNames[0]
-        : 'Semua Halaqoh';
-
-
-    const safeLabel =
-      String(
-        halaqohLabel
-      )
-        .replace(
-          /[\\\/\?\*\[\]\:]/g,
-          ''
-        )
-        .trim() ||
-      'Semua Halaqoh';
-
-
-    const safeYear =
-      String(
-        st.academic_year
-      )
-        .replace(
-          /[\\\/\?\*\[\]\:]/g,
-          '_'
-        );
-
+    const safeYear = String(st.academic_year)
+      .replace(/[\\\/\?\*\[\]\:]/g, '_');
 
     const fileName =
-      `Rapor Tahfidz - ${safeLabel} - ` +
-      `${st.semester} ${safeYear}.xlsx`;
+      `Rapor Tahfidz - ${safeLabel} - ${st.semester} ${safeYear}.xlsx`;
 
-
-    const a =
-      document.createElement(
-        'a'
-      );
-
-    a.href =
-      url;
-
-    a.download =
-      fileName;
-
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
     document.body.appendChild(a);
-
     a.click();
-
     a.remove();
 
-
-    setTimeout(
-      () =>
-        URL.revokeObjectURL(
-          url
-        ),
-      2000
-    );
-
-
-    toast(
-      `Berhasil export ${students.length} rapor.`
-    );
-
-
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast(`Berhasil export ${students.length} rapor.`);
   }catch(error){
-
-    console.error(
-      'exportRaporExcelHalaqoh error:',
-      error
-    );
-
-    toast(
-      `Gagal export semua rapor: ${
-        error?.message || error
-      }`,
-      'err'
-    );
-
+    console.error('exportRaporExcelHalaqoh error:', error);
+    toast(`Gagal export semua rapor: ${error?.message || error}`, 'err');
   }
-
 }
 
 function makeSafeExcelSheetName(name, index){

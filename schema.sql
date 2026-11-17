@@ -18,6 +18,7 @@ create table if not exists public.profiles (
   role public.user_role not null default 'guru',
   status public.account_status not null default 'pending',
   requested_halaqoh text,
+  nipy text,
   created_at timestamptz not null default now()
 );
 
@@ -44,7 +45,7 @@ create table if not exists public.examiners (
 
 create table if not exists public.teacher_halaqoh (
   teacher_id uuid not null references public.profiles(id) on delete cascade,
-  halaqoh_id uuid not null references public.halaqoh(id) on delete cascade,
+  halaqoh_id uuid not null unique references public.halaqoh(id) on delete cascade,
   primary key (teacher_id, halaqoh_id)
 );
 

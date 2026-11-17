@@ -3,7 +3,8 @@
 Arsitektur: **GitHub Pages (frontend) + Supabase (Auth + PostgreSQL)**.
 
 ## Fitur utama v3
-- Guru mendaftar dengan nama, email, password, dan satu/lebih halaqoh yang diampu.
+- Guru mendaftar dengan nama, email, password, dan halaqoh yang diminta.
+- Satu halaqoh hanya boleh memiliki satu guru pengampu; satu guru boleh mengampu beberapa halaqoh.
 - Pendaftaran guru masuk ke tabel akun guru dan harus disetujui Koordinator.
 - Satu guru dapat mengampu banyak halaqoh.
 - Kelas guru juga berupa penugasan yang dapat berjumlah lebih dari satu.
@@ -70,4 +71,4 @@ Versi ini menambahkan menu **Peraturan & Pengaturan** khusus Koordinator untuk:
 - memilih tema aplikasi;
 - mengelola master Kelas, Halaqoh, dan Penguji yang sudah ada.
 
-Sebelum memakai menu ini pada project Supabase yang sudah ada, jalankan file `migration_peraturan.sql` sekali di Supabase SQL Editor.
+Sebelum memakai menu ini pada project Supabase yang sudah ada, jalankan file `migration_peraturan.sql` sekali di Supabase SQL Editor. Untuk aturan satu halaqoh satu pengampu dan kolom NIPY, jalankan `migration_rapor_pengampu.sql` setelah memeriksa tidak ada halaqoh dengan lebih dari satu guru.
