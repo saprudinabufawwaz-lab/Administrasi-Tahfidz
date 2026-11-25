@@ -200,99 +200,71 @@ function applySettings(){
       `lg:hidden sticky top-0 z-40 ${th.mid} text-white p-3 flex items-center justify-between`;
   }
 }
-async function loadAll(){
-const tables = {
-  profiles: 'profiles',
-  classes: 'classes',
-  halaqoh: 'halaqoh',
-  examiners: 'examiners',
-  teacherHalaqoh: 'teacher_halaqoh',
-  teacherClass: 'teacher_class',
-  students: 'students',
-  journals: 'monthly_journals',
-  reports: 'quarterly_reports',
-  exams: 'exam_requests',
-  certificates: 'certificate_requests',
+async function loadAll() {
+  const tables = {
+    profiles: 'profiles',
+    classes: 'classes',
+    halaqoh: 'halaqoh',
+    examiners: 'examiners',
+    teacherHalaqoh: 'teacher_halaqoh',
+    teacherClass: 'teacher_class',
+    students: 'students',
+    journals: 'monthly_journals',
+    reports: 'quarterly_reports',
+    exams: 'exam_requests',
+    certificates: 'certificate_requests',
 
-  // RAPOR TAHFIDZ
-  assessments: 'tahfidz_assessments',
-  memorizations: 'tahfidz_memorizations'
-};
+    // RAPOR TAHFIDZ
+    assessments: 'tahfidz_assessments',
+    memorizations: 'tahfidz_memorizations'
+  };
 
-  for(const [key, table] of Object.entries(tables)){
-    const {data, error} = await sb
-      .from(table)
-      .select('*');
+  const pageSize = 1000;
 
-   if(error){
-  console.warn('Gagal memuat', table, error);
-  cache[key] = [];
-}else{
-  cache[key] = data || [];
+  for (const [key, table] of Object.entries(tables)) {
+    let allData = [];
+    let from = 0;
+    let hasError = false;
 
-  if(table === 'exam_requests'){
-    console.log(
-      '[DEBUG UJIAN]',
-      'Role:', current?.role,
-      'Jumlah:', cache[key].length,
-      'Data:', cache[key]
-    );
+    while (true) {
+      const to = from + pageSize - 1;
+
+      const { data, error } = await sb
+        .from(table)
+        .select('*')
+        .range(from, to);
+
+      if (error) {
+        console.warn('Gagal memuat', table, error);
+        hasError = true;
+        break;
+      }
+
+      const pageData = data || [];
+      allData = allData.concat(pageData);
+
+      // Halaman kurang dari 1.000 berarti sudah mencapai akhir data.
+      if (pageData.length < pageSize) {
+        break;
+      }
+
+      from += pageSize;
+    }
+
+    cache[key] = hasError ? [] : allData;
+
+    if (table === 'exam_requests') {
+      console.log(
+        '[DEBUG UJIAN]',
+        'Role:', current?.role,
+        'Jumlah:', cache[key].length,
+        'Data:', cache[key]
+      );
+    }
+
+    console.log('[LOAD]', table, 'jumlah:', cache[key].length);
   }
 }
-}
-  }
-async function start(user){
-  console.log('START 1 - mulai login', user);
-
-  const {data:p,error}=await sb
-    .from('profiles')
-    .select('*')
-    .eq('id',user.id)
-    .single();
-
-  console.log('START 2 - profile:', p, error);
-
-  if(error || !p){
-    return toast('Profil pengguna belum tersedia','err');
-  }
-
-  if(p.status !== 'approved'){
-    return toast(
-      'Akun belum disetujui Koordinator. Status: ' + p.status,
-      'err'
-    );
-  }
-
-  console.log('START 3 - profile approved');
-
-  current=p;
-
-  await loadSettings();
-  console.log('START 4 - loadSettings selesai');
-
-  $('loginScreen').classList.add('hidden');
-$('loginScreen').style.display='none';
-
-  $('app').classList.remove('hidden');
-  $('app').style.display='block';
-
-  console.log('START 5 - dashboard diperintah tampil');
-
-  $('sideUser').textContent=`${p.nama} • ${p.role}`;
-
-  applySettings();
-  console.log('START 6 - applySettings selesai');
-
-  buildNav();
-  console.log('START 7 - buildNav selesai');
-
-  await loadAll();
-  console.log('START 8 - loadAll selesai');
-
-  go('home');
-  console.log('START 9 - go home selesai');
-}
-
 function buildNav() {
   const isC = current.role === 'koordinator';
   const isP = current.role === 'penguji';
