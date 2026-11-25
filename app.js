@@ -583,18 +583,26 @@ function home(){
 
           </div>
 
-          <h1
-            class="text-3xl md:text-5xl
-                   font-bold leading-tight">
+        <h1
+  class="text-3xl md:text-5xl
+         font-bold leading-tight">
 
-            Selamat Datang di
+  Assalamu'alaykum,
 
-            <span class="text-emerald-200">
-              ${esc(institutionName)}
-            </span>
+  <span class="text-emerald-200">
+    ${esc(current?.nama || 'Pengguna')}
+  </span>
 
-          </h1>
+</h1>
+<p
+  class="mt-4 max-w-xl
+         text-emerald-50/90
+         text-sm md:text-base
+         leading-relaxed">
 
+  Selamat datang di Sistem Administrasi Tahfidz SDITQ ABA.
+
+</p>
           <p
             class="mt-4 max-w-xl
                    text-emerald-50/90
