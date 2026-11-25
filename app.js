@@ -265,6 +265,58 @@ async function loadAll() {
     console.log('[LOAD]', table, 'jumlah:', cache[key].length);
   }
 }
+async function start(user) {
+  console.log('START 1 - mulai login', user);
+
+  const { data: p, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  console.log('START 2 - profile:', p, error);
+
+  if (error || !p) {
+    return toast('Profil pengguna belum tersedia', 'err');
+  }
+
+  if (p.status !== 'approved') {
+    return toast(
+      'Akun belum disetujui Koordinator. Status: ' + p.status,
+      'err'
+    );
+  }
+
+  console.log('START 3 - profile approved');
+
+  current = p;
+
+  await loadSettings();
+  console.log('START 4 - loadSettings selesai');
+
+  $('loginScreen').classList.add('hidden');
+  $('loginScreen').style.display = 'none';
+
+  $('app').classList.remove('hidden');
+  $('app').style.display = 'block';
+
+  console.log('START 5 - dashboard diperintah tampil');
+
+  $('sideUser').textContent = `${p.nama} • ${p.role}`;
+
+  applySettings();
+  console.log('START 6 - applySettings selesai');
+
+  buildNav();
+  console.log('START 7 - buildNav selesai');
+
+  await loadAll();
+  console.log('START 8 - loadAll selesai');
+
+  go('home');
+  console.log('START 9 - go home selesai');
+}
+
 function buildNav() {
   const isC = current.role === 'koordinator';
   const isP = current.role === 'penguji';
