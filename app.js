@@ -621,10 +621,11 @@ function home(){
 <p
   class="mt-4 max-w-xl
          text-emerald-50/90
-         text-sm md:text-base
+         text-xl md:text-2xl
+         font-semibold
          leading-relaxed">
 
-  Selamat datang di Sistem Administrasi Tahfidz SDITQ ABA.
+  Selamat datang di Aplikasi Administrasi Tahfidz.
 
 </p>
           <p
