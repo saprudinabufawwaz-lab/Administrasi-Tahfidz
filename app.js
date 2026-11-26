@@ -397,7 +397,142 @@ ${!isC ? `
       class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
       👦 Data Murid
     </button>
+    ${!isC ? `
+  <button onclick="go('profile')"
+    class="nav w-full text-left px-3 py-2 rounded-lg hover:bg-emerald-800">
+    👤 Profil Saya
+  </button>
+` : ''}
   `;
+}
+function profile() {
+  if (current?.role !== 'guru') {
+    return '<p class="text-red-600">Halaman ini khusus akun Guru.</p>';
+  }
+
+  return `
+    <section class="bg-white rounded-2xl p-5 shadow-sm max-w-2xl">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">
+        Profil Saya
+      </h2>
+
+      <p class="text-sm text-slate-500 mb-5">
+        Perbarui nama atau kata sandi akun Anda.
+      </p>
+
+      <form onsubmit="saveMyProfile(event)" class="space-y-4">
+        <label class="block text-sm font-medium">
+          Nama
+          <input
+            id="profileNama"
+            type="text"
+            required
+            maxlength="100"
+            value="${esc(current.nama || '')}"
+            class="mt-1 w-full border rounded-lg px-3 py-2.5"
+          >
+        </label>
+
+        <div class="border-t pt-4">
+          <h3 class="font-semibold text-slate-800 mb-1">
+            Ubah Kata Sandi
+          </h3>
+          <p class="text-sm text-slate-500 mb-3">
+            Kosongkan jika tidak ingin mengubah kata sandi.
+          </p>
+
+          <label class="block text-sm font-medium">
+            Kata sandi baru
+            <input
+              id="profilePassword"
+              type="password"
+              minlength="6"
+              autocomplete="new-password"
+              class="mt-1 w-full border rounded-lg px-3 py-2.5"
+              placeholder="Minimal 6 karakter"
+            >
+          </label>
+
+          <label class="block text-sm font-medium mt-3">
+            Konfirmasi kata sandi baru
+            <input
+              id="profilePasswordConfirm"
+              type="password"
+              minlength="6"
+              autocomplete="new-password"
+              class="mt-1 w-full border rounded-lg px-3 py-2.5"
+              placeholder="Ulangi kata sandi baru"
+            >
+          </label>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button
+            type="submit"
+            class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold">
+            Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+async function saveMyProfile(event) {
+  event.preventDefault();
+
+  if (current?.role !== 'guru') {
+    return toast('Fitur ini khusus akun Guru', 'err');
+  }
+
+  const nama = $('profileNama').value.trim();
+  const password = $('profilePassword').value;
+  const passwordConfirm = $('profilePasswordConfirm').value;
+
+  if (!nama) {
+    return toast('Nama wajib diisi', 'err');
+  }
+
+  if (password || passwordConfirm) {
+    if (password.length < 6) {
+      return toast('Kata sandi minimal 6 karakter', 'err');
+    }
+
+    if (password !== passwordConfirm) {
+      return toast('Konfirmasi kata sandi tidak sama', 'err');
+    }
+  }
+
+  // Ubah kata sandi jika diisi.
+  if (password) {
+    const { error } = await sb.auth.updateUser({
+      password
+    });
+
+    if (error) {
+      console.error(error);
+      return toast('Gagal mengubah kata sandi: ' + error.message, 'err');
+    }
+  }
+
+  // Perbarui nama hanya pada profil akun yang sedang login.
+  const { error } = await sb
+    .from('profiles')
+    .update({ nama })
+    .eq('id', current.id);
+
+  if (error) {
+    console.error(error);
+    return toast('Gagal menyimpan nama: ' + error.message, 'err');
+  }
+
+  current.nama = nama;
+  $('sideUser').textContent = `${current.nama} • ${current.role}`;
+
+  await loadAll();
+  go('profile');
+
+  toast('Profil berhasil diperbarui');
 }
 function toggleSidebar(){$('sidebar').classList.toggle('-translate-x-full')}
 
@@ -412,7 +547,7 @@ function go(page, pushHistory = true) {
   // Daftar halaman yang boleh diakses masing-masing role.
   const allowedPages = {
   koordinator: ['home','journal','report','exam','certificate','rapor','guru','settings','student'],
-  guru: ['home','journal','report','exam','rapor','student'],
+  guru: ['home','journal','report','exam','rapor','student','profile'],
   penguji: ['exam','certificate'],
 };
 
@@ -461,7 +596,8 @@ function go(page, pushHistory = true) {
     student: [
       'Data Murid',
       'Nama murid, kelas, dan halaqoh'
-    ]
+    ],
+    profile: ['Profil Saya', 'Ubah nama dan kata sandi akun Anda'],
   };
 
   const fn = {
@@ -473,7 +609,8 @@ function go(page, pushHistory = true) {
     rapor,
     guru,
     settings: settingsPage,
-    student
+    student,
+    profile
   };
 
   if (!map[page] || !fn[page]) return;
