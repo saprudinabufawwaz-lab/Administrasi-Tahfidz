@@ -534,7 +534,33 @@ async function saveMyProfile(event) {
 
   toast('Profil berhasil diperbarui');
 }
-function toggleSidebar(){$('sidebar').classList.toggle('-translate-x-full')}
+function toggleSidebar() {
+  $('sidebar').classList.toggle('-translate-x-full');
+}
+
+function closeSidebar() {
+  if (window.innerWidth < 1024) {
+    $('sidebar').classList.add('-translate-x-full');
+  }
+}
+
+// Ketuk area mana pun di luar sidebar untuk menutup menu.
+document.addEventListener('click', function (event) {
+  const sidebar = $('sidebar');
+
+  if (!sidebar || window.innerWidth >= 1024) return;
+
+  const clickedInsideSidebar = sidebar.contains(event.target);
+
+  // Jangan langsung menutup saat tombol garis tiga ditekan.
+  const clickedMenuButton = event.target.closest(
+    '[onclick*="toggleSidebar"]'
+  );
+
+  if (!clickedInsideSidebar && !clickedMenuButton) {
+    closeSidebar();
+  }
+});
 
 
 let restoringHistory = false;
